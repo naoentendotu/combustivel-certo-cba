@@ -1,0 +1,24 @@
+# Dependências
+node_modules/
+
+# Logs e arquivos temporários de execução
+*.log
+npm-debug.log*
+data/*.tmp*
+data/atualizacao.lock
+
+# Sistema operacional e editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Variáveis de ambiente locais
+.env
+.env.local
+.env.*.local
+
+# Vercel CLI
+.vercel/

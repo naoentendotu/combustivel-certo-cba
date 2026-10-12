@@ -1,0 +1,15 @@
+{
+  "name": "combustivel-certo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Postos de combustível de Cuiabá-MT com preços da pesquisa semanal da ANP",
+  "main": "server.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "precos:atualizar": "node scripts/atualizar-precos.js",
+    "precos:status": "node scripts/atualizar-precos.js --status",
+    "test": "node --test test/precos.test.js",
+    "test:live": "node --test test/anp-ao-vivo.test.js"
+  }
+}
