@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "description": "Postos de combustível de Cuiabá-MT com preços da pesquisa semanal da ANP",
-  "main": "server.js",
   "engines": { "node": ">=20" },
   "scripts": {
     "start": "node server.js",

@@ -1,15 +1,12 @@
 {
-  "version": 2,
-  "cleanUrls": true,
   "functions": {
     "api/**/*.js": {
       "includeFiles": "data/**"
     }
   },
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index.js"
-    }
+    { "source": "/api/precos/status", "destination": "/api/precos/status.js" },
+    { "source": "/api/precos", "destination": "/api/precos/index.js" },
+    { "source": "/api/anp", "destination": "/api/anp.js" }
   ]
 }

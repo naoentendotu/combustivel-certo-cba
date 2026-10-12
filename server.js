@@ -82,6 +82,7 @@ function criarServidor({
       res.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
       });
       res.end(typeof body === "string" ? body : JSON.stringify(body));
     } catch (err) {
@@ -89,17 +90,26 @@ function criarServidor({
       if (status >= 500) log("[api] " + err.message);
       res.writeHead(status, {
         "Content-Type": "application/json; charset=utf-8",
+        "Access-Control-Allow-Origin": "*",
       });
       res.end(JSON.stringify({ erro: err.message }));
     }
   }
 
   const handler = (req, res) => {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      });
+      return res.end();
+    }
     const url = new URL(req.url, "http://localhost");
     if (req.method !== "GET" && req.method !== "HEAD")
       return res.writeHead(405).end();
     if (url.pathname === "/api/anp") return json(res, getCadastro);
-    if (url.pathname === "/api/precos")
+    if (url.pathname === "/api/precos" || url.pathname === "/api/precos/")
       return json(res, () => getPrecos(Object.fromEntries(url.searchParams)));
     if (url.pathname === "/api/precos/status") return json(res, getStatus);
     const MIME = {
@@ -129,7 +139,14 @@ function criarServidor({
 
   const server = http.createServer(handler);
 
-  return { server, handler, atualizarPrecos };
+  return {
+    server,
+    handler,
+    atualizarPrecos,
+    getCadastro,
+    getPrecos,
+    getStatus,
+  };
 }
 
 /* --------------------------------------------------------- Agendamento semanal */
@@ -225,5 +242,6 @@ if (require.main === module) {
 const serverlessHandler = (req, res) => defaultApp.handler(req, res);
 serverlessHandler.criarServidor = criarServidor;
 serverlessHandler.proximaExecucao = proximaExecucao;
+serverlessHandler.defaultApp = defaultApp;
 
 module.exports = serverlessHandler;
