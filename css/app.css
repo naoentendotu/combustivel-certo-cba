@@ -1,0 +1,438 @@
+/* ==========================================================================
+   Combustível Certo · Estilos do Aplicativo (Design System & Componentes)
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --color-primary-green: #0e7048;
+  --color-primary-hover: #095436;
+  --color-primary-dark: #063c26;
+  --color-accent-yellow: #facc15;
+  --color-dark-bg: #091e26;
+  --color-dark-card: #0d2833;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f8fafc;
+  color: #0f172a;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-root {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background: #ffffff;
+}
+
+/* --------------------------------------------------------------------------
+   Mapa Leaflet & Camadas
+   -------------------------------------------------------------------------- */
+.map-canvas {
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  background: #e2e8f0;
+}
+
+.leaflet-container {
+  font-family: 'Outfit', sans-serif;
+  background: #e2e8f0;
+}
+
+.leaflet-bar {
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+
+.leaflet-bar a {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  font-size: 16px !important;
+  line-height: 34px !important;
+  width: 36px !important;
+  height: 36px !important;
+}
+
+/* --------------------------------------------------------------------------
+   Pins de Preço no Mapa (Modelo: Mobile - Mapa)
+   -------------------------------------------------------------------------- */
+.pin-wrap {
+  background: none;
+  border: none;
+}
+
+/* Pin Padrão (Pílula Branca com Dot Escuro) */
+.map-pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, calc(-100% - 8px));
+  white-space: nowrap;
+  padding: 5px 11px;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 12.5px;
+  line-height: 1;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.06);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Dot/Âncora do Pin */
+.map-pin::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #0f172a;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  transition: all 0.18s ease;
+}
+
+.map-pin:hover, .map-pin.is-active {
+  transform: translate(-50%, calc(-100% - 9px)) scale(1.1);
+  background: #064e3b;
+  color: #fef08a;
+  border-color: #facc15;
+  box-shadow: 0 8px 24px rgba(6, 78, 59, 0.35);
+  z-index: 1000 !important;
+}
+.map-pin:hover::after, .map-pin.is-active::after {
+  background: #facc15;
+  border-color: #064e3b;
+  transform: translateX(-50%) scale(1.2);
+}
+
+/* Pin Menor Preço (Pílula Verde Vibrante com Dot Verde) */
+.map-pin-best {
+  background: #0e7048;
+  color: #ffffff;
+  border-color: #15803d;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 6px 13px;
+  box-shadow: 0 0 0 3px rgba(14, 112, 72, 0.25), 0 8px 20px rgba(14, 112, 72, 0.35);
+}
+.map-pin-best::after {
+  background: #0e7048;
+  border-color: #ffffff;
+  width: 8px;
+  height: 8px;
+  bottom: -8px;
+}
+.map-pin-best:hover, .map-pin-best.is-active {
+  background: #095436;
+  color: #facc15;
+  border-color: #facc15;
+}
+
+/* Pin com preço desatualizado */
+.map-pin-stale:not(.map-pin-best) {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+.map-pin-stale:not(.map-pin-best)::after {
+  background: #d97706;
+}
+
+/* Marcador do Usuário com Raio Pulsante */
+.user-marker-dot {
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4), 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+.user-marker-dot::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.35);
+  animation: pulse-user 2.2s ease-out infinite;
+  z-index: -1;
+}
+@keyframes pulse-user {
+  from { transform: scale(0.9); opacity: 0.8; }
+  to { transform: scale(3.5); opacity: 0; }
+}
+
+/* --------------------------------------------------------------------------
+   Backdrop Translúcido do Bottom Sheet Expandido
+   -------------------------------------------------------------------------- */
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  bottom: 0; /* Cobre até a barra de navegação sem deixar vãos */
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 480;
+  opacity: 1;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+.sheet-backdrop.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   Botão Flutuante de GPS (Minha Localização / Zoom Rápido)
+   -------------------------------------------------------------------------- */
+.floating-gps-btn {
+  position: absolute;
+  bottom: 215px; /* Posicionado acima do card recolhido, perfeitamente alinhado */
+  right: 16px;
+  z-index: 450;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #1e293b;
+  border: 1.5px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  touch-action: manipulation;
+}
+.floating-gps-btn:hover {
+  color: #0e7048;
+  background: #f8fafc;
+  transform: scale(1.06);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.22);
+}
+.floating-gps-btn:active {
+  transform: scale(0.92);
+}
+.floating-gps-btn.is-active {
+  color: #0e7048;
+  border-color: #0e7048;
+  background: #ecfdf5;
+  box-shadow: 0 0 0 3px rgba(14, 112, 72, 0.2), 0 6px 18px rgba(15, 23, 42, 0.16);
+}
+.floating-gps-btn.is-loading svg {
+  animation: gps-spin 1s linear infinite;
+  color: #0e7048;
+}
+@keyframes gps-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------------------------
+   Drawer Flutuante (Bottom Sheet do Mapa: Peek e Expandido)
+   -------------------------------------------------------------------------- */
+.bottom-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0; /* Encostado diretamente na barra de navegação inferior! Sem gap! */
+  max-width: 100%;
+  background: #ffffff;
+  border-radius: 26px 26px 0 0;
+  border-top: 1px solid rgba(226, 232, 240, 0.95);
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.14);
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  touch-action: pan-y;
+  transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+  max-height: 200px;
+  min-height: 70px;
+}
+
+@media (min-width: 641px) {
+  .bottom-sheet {
+    left: 16px;
+    right: auto;
+    bottom: 0;
+    width: 440px;
+    max-width: 440px;
+    border-radius: 24px 24px 0 0;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-bottom: none;
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
+  }
+}
+
+.bottom-sheet.is-expanded {
+  max-height: calc(100% - 64px);
+  height: calc(100% - 64px);
+  box-shadow: 0 -12px 40px rgba(15, 23, 42, 0.25);
+}
+
+@media (min-width: 641px) {
+  .bottom-sheet.is-expanded {
+    max-height: calc(100% - 74px);
+    height: calc(100% - 74px);
+  }
+}
+
+.bottom-sheet.is-hidden {
+  transform: translateY(120%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Puxador Superior do Bottom Sheet */
+.sheet-drag-handle {
+  width: 44px;
+  height: 5px;
+  border-radius: 9999px;
+  background: #cbd5e1;
+  margin: 8px auto 4px;
+  cursor: grab;
+  touch-action: none;
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+.sheet-drag-handle:hover, .sheet-drag-handle:active {
+  background: #94a3b8;
+  transform: scaleX(1.15);
+}
+
+/* Botões Pílula de Ordenação */
+.sort-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 11px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.sort-pill-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.sort-pill-btn:active {
+  transform: scale(0.96);
+}
+.sort-pill-btn.is-active {
+  background: #0e7048;
+  color: #fef08a;
+  border-color: #095436;
+  box-shadow: 0 2px 8px rgba(14, 112, 72, 0.25);
+  font-weight: 800;
+}
+.sort-pill-btn.is-active svg {
+  stroke: #fef08a;
+}
+
+/* --------------------------------------------------------------------------
+   Barra de Navegação Inferior (3 Abas: Lista, Mapa, Dados)
+   -------------------------------------------------------------------------- */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 600;
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.nav-tab-btn {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  transition: all 0.15s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.nav-tab-btn:hover {
+  color: #0f172a;
+}
+.nav-tab-btn.is-active {
+  color: #0e7048;
+}
+.nav-tab-btn.is-active svg {
+  transform: scale(1.08);
+  stroke: #0e7048;
+}
+
+/* --------------------------------------------------------------------------
+   Transições de Visualização (Mapa vs. Lista)
+   -------------------------------------------------------------------------- */
+.view-panel {
+  position: absolute;
+  inset: 0;
+  bottom: 60px;
+  overflow: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.view-panel.is-hidden {
+  display: none !important;
+}
+
+/* Scrollbar refinada */
+.scroll-thin::-webkit-scrollbar { width: 6px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
+.scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+.scroll-thin::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Lucide Icons & Utilitários */
+.lucide {
+  stroke-width: 2.2;
+  stroke: currentColor;
+}
+.scroll-none::-webkit-scrollbar { display: none; }
+.scroll-none { -ms-overflow-style: none; scrollbar-width: none; }
