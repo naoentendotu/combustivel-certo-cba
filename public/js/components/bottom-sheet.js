@@ -40,6 +40,7 @@ const BottomSheet = (() => {
   let onRequestGpsCb = null;
   let onVehicleChangeCb = null;
   let onShowHistoryCb = null;
+  let onShareCb = null;
 
   // Gestos de toque
   let touchStartY = 0;
@@ -58,6 +59,7 @@ const BottomSheet = (() => {
     onRequestGps,
     onVehicleChange,
     onShowHistory,
+    onShare,
   }) {
     container = document.getElementById(containerId);
     backdrop = document.getElementById(backdropId);
@@ -67,6 +69,7 @@ const BottomSheet = (() => {
     onRequestGpsCb = onRequestGps;
     onVehicleChangeCb = onVehicleChange;
     onShowHistoryCb = onShowHistory;
+    onShareCb = onShare;
 
     if (!container) return;
 
@@ -228,10 +231,11 @@ const BottomSheet = (() => {
 
     return `
       <div class="summary-top">${tag}${dist}</div>
+      ${UI.flexLine(station, currentFuel?.id, formatBrl)}
       <div class="summary-head">
         <div style="min-width:0">
           <h3>${UI.esc(station.name)}</h3>
-          <p>${UI.esc(isBest ? station.brand + " · " + station.address : station.address)}</p>
+          ${UI.addrCopy(station, isBest ? station.brand + " · " + station.address : station.address)}
         </div>
         <div class="summary-price">
           ${
@@ -268,7 +272,8 @@ const BottomSheet = (() => {
         }
         ${
           station.price != null
-            ? `<button type="button" class="btn btn-quiet btn-square" data-historico aria-label="Histórico de preço" title="Histórico de preço">${UI.icon("chart-line")}</button>`
+            ? `<button type="button" class="btn btn-quiet btn-square" data-historico aria-label="Histórico de preço" title="Histórico de preço">${UI.icon("chart-line")}</button>
+              <button type="button" class="btn btn-quiet btn-square" data-compartilhar aria-label="Compartilhar este preço" title="Compartilhar este preço">${UI.icon("share-2")}</button>`
             : ""
         }
       </div>
@@ -289,6 +294,11 @@ const BottomSheet = (() => {
     container.querySelector("[data-historico]")?.addEventListener("click", () => {
       const station = activeStation || bestStation;
       if (station && typeof onShowHistoryCb === "function") onShowHistoryCb(station);
+    });
+
+    container.querySelector("[data-compartilhar]")?.addEventListener("click", () => {
+      const station = activeStation || bestStation;
+      if (station && typeof onShareCb === "function") onShareCb(station);
     });
 
     container.querySelector("[data-ask-gps]")?.addEventListener("click", () => {
