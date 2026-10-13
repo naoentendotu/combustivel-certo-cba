@@ -19,7 +19,7 @@
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="css/app.css?v=4" />
+    <link rel="stylesheet" href="css/app.css?v=5" />
   </head>
 
   <body>
@@ -58,90 +58,6 @@
       <!-- Lista -->
       <section id="viewList" class="view-panel is-hidden scroll-thin" style="overflow-y: auto" aria-label="Lista de postos"></section>
 
-      <!-- Pesquisa ANP (todos os registros) -->
-      <section id="viewDados" class="view-panel is-hidden" style="display: flex; flex-direction: column" aria-label="Pesquisa de preços da ANP">
-        <header class="page-head">
-          <div class="page-inner dados-wide dados-head">
-            <div>
-              <h1 class="page-title">Pesquisa de preços da ANP</h1>
-              <p id="tabMeta" class="page-sub">Registros da pesquisa semanal em Cuiabá</p>
-            </div>
-            <button id="tabReloadBtn" type="button" class="btn-icon" aria-label="Atualizar" title="Atualizar">
-              <i data-lucide="refresh-cw"></i>
-            </button>
-          </div>
-        </header>
-
-        <div class="dados-filters">
-          <div class="page-inner dados-wide">
-            <div class="dados-grid">
-              <label class="field"><span>Combustível</span><select id="tabCombustivel"></select></label>
-              <label class="field"><span>Bairro</span><select id="tabBairro"></select></label>
-            </div>
-
-            <div id="tabFiltrosAvancados" class="dados-grid more hidden">
-              <label class="field"><span>Bandeira</span><select id="tabBandeira"></select></label>
-              <label class="field">
-                <span>Período</span>
-                <select id="tabSemanas">
-                  <option value="1">Semana mais recente</option>
-                  <option value="4">Últimas 4 semanas</option>
-                  <option value="todas">Todo o histórico</option>
-                </select>
-              </label>
-              <label class="field"><span>Preço mínimo (R$)</span><input id="tabMin" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" /></label>
-              <label class="field"><span>Preço máximo (R$)</span><input id="tabMax" type="number" min="0" step="0.01" inputmode="decimal" placeholder="9,99" /></label>
-              <label class="field"><span>Coleta a partir de</span><input id="tabDe" type="date" /></label>
-              <label class="field"><span>Coleta até</span><input id="tabAte" type="date" /></label>
-            </div>
-
-            <div class="dados-tools">
-              <button id="tabToggleFiltrosBtn" type="button" class="link" aria-expanded="false" aria-controls="tabFiltrosAvancados">
-                <i data-lucide="sliders-horizontal"></i>
-                <span>Mais filtros</span>
-                <i data-lucide="chevron-down" class="chev"></i>
-              </button>
-              <button id="tabLimpar" type="button" class="link">Limpar</button>
-              <span id="tabTotal" class="count"></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="scroll-thin" style="flex: 1; min-height: 0; overflow-y: auto">
-          <div class="page-inner dados-wide" style="padding-top: 14px; padding-bottom: 20px">
-            <div id="tabEstado" class="state hidden" role="status"></div>
-            <ul id="tabCardsContainer" class="rows sheet-block"></ul>
-            <div id="tabTableWrap" class="table-wrap">
-              <table id="tabTable" class="table">
-                <thead>
-                  <tr>
-                    <th>Posto</th>
-                    <th>Bandeira</th>
-                    <th>Combustível</th>
-                    <th class="num">Preço</th>
-                    <th class="num">Coleta</th>
-                    <th><span class="sr-only">Ações</span></th>
-                  </tr>
-                </thead>
-                <tbody id="tabCorpo"></tbody>
-              </table>
-            </div>
-            <p id="tabAviso" class="footnote hidden" style="padding-bottom: 0"></p>
-          </div>
-        </div>
-
-        <div id="tabPagination" class="dados-foot">
-          <div class="page-inner dados-wide pager">
-            <span id="tabPagInfo"></span>
-            <div class="pager-nav">
-              <button id="tabPagPrev" type="button" class="btn-icon" aria-label="Página anterior"><i data-lucide="chevron-left"></i></button>
-              <span id="tabPagPage" class="pager-page"></span>
-              <button id="tabPagNext" type="button" class="btn-icon" aria-label="Próxima página"><i data-lucide="chevron-right"></i></button>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <nav class="bottom-nav" aria-label="Seções">
         <img class="nav-brand" src="assets/logo-icon.svg" alt="Combustível Certo" />
         <button type="button" data-nav-tab="map" class="nav-tab-btn is-active">
@@ -151,10 +67,6 @@
         <button type="button" data-nav-tab="list" class="nav-tab-btn">
           <i data-lucide="list"></i>
           <span>Lista</span>
-        </button>
-        <button type="button" data-nav-tab="dados" class="nav-tab-btn">
-          <i data-lucide="table"></i>
-          <span>Pesquisa</span>
         </button>
       </nav>
     </div>
@@ -177,8 +89,8 @@
             <button type="button" data-top10-fuel="diesel" aria-pressed="false">Diesel S10</button>
           </div>
           <div id="top10PeriodoBtns" class="seg" role="group" aria-label="Período do gráfico">
-            <button type="button" data-top10-periodo="4" aria-pressed="true">4 semanas</button>
-            <button type="button" data-top10-periodo="todas" aria-pressed="false">Todo o histórico</button>
+            <button type="button" data-top10-periodo="4" aria-pressed="true">1 mês</button>
+            <button type="button" data-top10-periodo="todas" aria-pressed="false">Tudo</button>
           </div>
         </div>
 
@@ -186,22 +98,44 @@
           <dl id="top10Metrics" class="stats"></dl>
           <div id="top10GraficoBox"></div>
           <p id="top10Aviso" class="footnote hidden" style="padding-bottom: 0"></p>
-          <p class="modal-foot">
-            <button id="top10VerTabelaGeral" type="button" class="link">Ver todos os registros da pesquisa</button>
-          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Histórico de preço de um posto -->
+    <div id="modalHist" class="modal hidden">
+      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="histTitle">
+        <header class="modal-head">
+          <div>
+            <h2 id="histTitle">Histórico de preço</h2>
+            <p id="histMeta"></p>
+          </div>
+          <button id="histClose" type="button" class="btn-icon" aria-label="Fechar"><i data-lucide="x"></i></button>
+        </header>
+
+        <div class="modal-controls">
+          <div id="histPeriodoBtns" class="seg" role="group" aria-label="Período">
+            <button type="button" data-hist-periodo="4" aria-pressed="false">1 mês</button>
+            <button type="button" data-hist-periodo="todas" aria-pressed="true">Tudo</button>
+          </div>
+        </div>
+
+        <div class="modal-body scroll-thin">
+          <dl id="histMetrics" class="stats"></dl>
+          <div id="histBox"></div>
         </div>
       </div>
     </div>
     <div id="grafTip" class="graf-tip hidden"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="js/data/stations-data.js?v=4"></script>
-    <script src="js/components/ui.js?v=4"></script>
-    <script src="js/components/map-view.js?v=4"></script>
-    <script src="js/components/bottom-sheet.js?v=4"></script>
-    <script src="js/components/list-view.js?v=4"></script>
-    <script src="js/components/modals.js?v=4"></script>
-    <script src="js/components/nav.js?v=4"></script>
-    <script src="js/app.js?v=4"></script>
+    <script src="js/data/stations-data.js?v=5"></script>
+    <script src="js/components/ui.js?v=5"></script>
+    <script src="js/components/map-view.js?v=5"></script>
+    <script src="js/components/bottom-sheet.js?v=5"></script>
+    <script src="js/components/list-view.js?v=5"></script>
+    <script src="js/components/modals.js?v=5"></script>
+    <script src="js/components/nav.js?v=5"></script>
+    <script src="js/app.js?v=5"></script>
   </body>
 </html>

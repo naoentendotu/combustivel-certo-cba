@@ -34,6 +34,7 @@
   const state = {
     stations: [],
     prices: {},
+    registros: [],
     pricesWeek: '',
     pricesWeekId: '',
     pricesStatus: location.protocol === 'file:' ? 'offline' : 'loading', // 'loading' | 'ok' | 'error' | 'offline'
@@ -69,6 +70,7 @@
       name: UI.titleCase(razao.replace(/[\s.,–-]*\b(LTDA|EIRELI|EPP|ME|S\/A|S\.A)\.?$/i, '').trim()),
       brand: DIST_BRAND[d] || UI.titleCase(d) || WHITE_LABEL.name,
       address: UI.titleCase([endereco, bairro].filter(Boolean).join(' · ')),
+      bairro: UI.titleCase(bairro || ''),
       lat,
       lng,
       gnv: mask.includes('n')
@@ -110,6 +112,7 @@
         }
       }
       state.prices = prices;
+      state.registros = j.registros;
       state.pricesWeek = j.semanaReferencia?.periodo || '';
       state.pricesWeekId = j.semanaReferencia?.id || '';
       state.pricesStatus = 'ok';
@@ -259,6 +262,8 @@
     });
   }
 
+  const showHistory = station => Modals.abrirHistorico(station, state.fuel, state.registros);
+
   function showStationsWithoutPrice() {
     state.hideNoPrice = false;
     savePrefs();
@@ -284,22 +289,16 @@
     el.querySelector('[data-status="retry"]')?.addEventListener('click', loadPrices);
   }
 
-  // Troca de Visão (Mapa vs. Lista vs. Dados)
+  // Troca de Visão (Mapa vs. Lista)
   function setView(viewName) {
     state.currentView = viewName;
     const viewMap = document.getElementById('viewMap');
     const viewList = document.getElementById('viewList');
-    const viewDados = document.getElementById('viewDados');
 
     if (viewMap) viewMap.classList.toggle('is-hidden', viewName !== 'map');
     if (viewList) viewList.classList.toggle('is-hidden', viewName !== 'list');
-    if (viewDados) viewDados.classList.toggle('is-hidden', viewName !== 'dados');
 
-    if (viewName === 'map') {
-      MapView.invalidateSize();
-    } else if (viewName === 'dados') {
-      Modals.loadTabela();
-    }
+    if (viewName === 'map') MapView.invalidateSize();
 
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       window.lucide.createIcons();
@@ -392,6 +391,7 @@
       onRequestGps: () => {
         requestLocation(false);
       },
+      onShowHistory: showHistory,
       onVehicleChange: setVehicle
     });
 
@@ -409,6 +409,7 @@
       onVehicleChange: setVehicle,
       onShowAll: showStationsWithoutPrice,
       onRetry: loadPrices,
+      onShowHistory: showHistory,
       onFuelChange: fuelId => {
         state.fuel = fuelId;
         state.activeId = null;
@@ -423,7 +424,7 @@
       onViewChange: setView
     });
 
-    // 6. Inicializa Modais (Top 10 e Tabela ANP)
+    // 6. Inicializa Modais (Top 10 e histórico de preço)
     Modals.init({
       onFocusStation: stationId => {
         const st = state.stations.find(s => s.id === stationId);
