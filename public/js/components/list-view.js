@@ -1,5 +1,6 @@
 /**
- * Combustível Certo · Componente da Tela de Lista / Início (Mobile — início com Paginação de 10 em 10)
+ * Combustível Certo · Aba Lista: o menor preço do momento e todos os postos em ordem,
+ * com filtros por bandeira, bairro e faixa de preço
  */
 const ListView = (() => {
   let container = null;
@@ -7,10 +8,17 @@ const ListView = (() => {
   let onUseGpsCallback = null;
   let onFuelChangeCallback = null;
   let onVehicleChangeCallback = null;
+  let onShowAllCallback = null;
+  let onRetryCallback = null;
+  let onShowHistoryCallback = null;
 
   let currentPage = 1;
   const PAGE_SIZE = 10;
   let lastParams = null;
+
+  // Filtros da lista (não mudam o mapa)
+  let filtersOpen = false;
+  const filters = { brands: new Set(), bairro: "", min: null, max: null };
 
   function init({
     containerId,
@@ -18,362 +26,423 @@ const ListView = (() => {
     onUseGps,
     onFuelChange,
     onVehicleChange,
+    onShowAll,
+    onRetry,
+    onShowHistory,
   }) {
     container = document.getElementById(containerId);
     onSelectStationCallback = onSelectStation;
     onUseGpsCallback = onUseGps;
     onFuelChangeCallback = onFuelChange;
     onVehicleChangeCallback = onVehicleChange;
+    onShowAllCallback = onShowAll;
+    onRetryCallback = onRetry;
+    onShowHistoryCallback = onShowHistory;
+  }
+
+  const cents = (n) => Math.round(n * 100) / 100;
+
+  // Opções de filtro tiradas dos postos do combustível escolhido
+  function filterOptions(rows) {
+    const count = new Map();
+    const bairros = new Set();
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const r of rows) {
+      count.set(r.brand, (count.get(r.brand) || 0) + 1);
+      if (r.bairro) bairros.add(r.bairro);
+      if (r.price != null) {
+        lo = Math.min(lo, r.price);
+        hi = Math.max(hi, r.price);
+      }
+    }
+    return {
+      brands: [...count.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])),
+      bairros: [...bairros].sort((a, b) => a.localeCompare(b)),
+      lo: Number.isFinite(lo) ? Math.floor(lo * 100) / 100 : null,
+      hi: Number.isFinite(hi) ? Math.ceil(hi * 100) / 100 : null,
+    };
+  }
+
+  // Descarta escolhas que não existem mais nos postos mostrados
+  function pruneFilters(opts) {
+    const known = new Set(opts.brands.map(([b]) => b));
+    for (const b of [...filters.brands]) if (!known.has(b)) filters.brands.delete(b);
+    if (filters.bairro && !opts.bairros.includes(filters.bairro)) filters.bairro = "";
+    if (opts.lo == null || opts.hi <= opts.lo) {
+      filters.min = filters.max = null;
+    } else {
+      if (filters.min != null && (filters.min <= opts.lo || filters.min > opts.hi)) filters.min = null;
+      if (filters.max != null && (filters.max >= opts.hi || filters.max < opts.lo)) filters.max = null;
+    }
+  }
+
+  const activeCount = () =>
+    filters.brands.size + (filters.bairro ? 1 : 0) + (filters.min != null || filters.max != null ? 1 : 0);
+
+  function applyFilters(rows) {
+    const byPrice = filters.min != null || filters.max != null;
+    return rows.filter(
+      (r) =>
+        (!filters.brands.size || filters.brands.has(r.brand)) &&
+        (!filters.bairro || r.bairro === filters.bairro) &&
+        (!byPrice ||
+          (r.price != null &&
+            (filters.min == null || r.price >= filters.min) &&
+            (filters.max == null || r.price <= filters.max))),
+    );
+  }
+
+  function clearFilters() {
+    filters.brands.clear();
+    filters.bairro = "";
+    filters.min = filters.max = null;
+    currentPage = 1;
+  }
+
+  function filtersHtml(opts, brl) {
+    const n = activeCount();
+    const hasRange = opts.lo != null && opts.hi > opts.lo;
+    const min = filters.min ?? opts.lo;
+    const max = filters.max ?? opts.hi;
+    const pct = (v) => (hasRange ? ((v - opts.lo) / (opts.hi - opts.lo)) * 100 : 0);
+
+    return `
+      <div class="list-tools">
+        <button type="button" id="listFiltersBtn" class="chip chip-tool" aria-expanded="${filtersOpen}" aria-controls="listFilters">
+          ${UI.icon("sliders-horizontal")}<span>Filtros</span>${n ? `<b class="chip-count">${n}</b>` : ""}
+        </button>
+        ${n ? `<button type="button" id="listClearBtn" class="link">Limpar</button>` : ""}
+      </div>
+      ${
+        filtersOpen
+          ? `<div id="listFilters" class="filters">
+              ${
+                hasRange
+                  ? `<div class="filter">
+                      <div class="filter-label">${UI.icon("banknote")}<span>Preço por litro</span>
+                        <output id="listRangeOut" class="range2-out">${brl(min)} a ${brl(max)}</output>
+                      </div>
+                      <div class="range2" id="listRange" style="--a:${pct(min)}%;--b:${pct(max)}%">
+                        <input type="range" id="listMin" min="${opts.lo}" max="${opts.hi}" step="0.01" value="${min}" aria-label="Preço mínimo" />
+                        <input type="range" id="listMax" min="${opts.lo}" max="${opts.hi}" step="0.01" value="${max}" aria-label="Preço máximo" />
+                      </div>
+                    </div>`
+                  : ""
+              }
+              ${
+                opts.brands.length > 1
+                  ? `<div class="filter">
+                      <div class="filter-label">${UI.icon("flag")}<span>Bandeira</span></div>
+                      <div class="chip-cloud">
+                        ${opts.brands
+                          .map(
+                            ([b, c]) =>
+                              `<button type="button" class="chip" data-brand="${UI.esc(b)}" aria-pressed="${filters.brands.has(b)}">${UI.icon("check")}<span>${UI.esc(b)}</span><small>${c}</small></button>`,
+                          )
+                          .join("")}
+                      </div>
+                    </div>`
+                  : ""
+              }
+              ${
+                opts.bairros.length > 1
+                  ? `<div class="filter">
+                      <div class="filter-label">${UI.icon("map-pin")}<span>Bairro</span></div>
+                      <div class="search-field">
+                        ${UI.icon("search")}
+                        <input id="listBairro" type="search" list="listBairros" autocomplete="off" placeholder="Todos os bairros" value="${UI.esc(filters.bairro)}" aria-label="Bairro" />
+                        <datalist id="listBairros">${opts.bairros.map((b) => `<option value="${UI.esc(b)}"></option>`).join("")}</datalist>
+                      </div>
+                    </div>`
+                  : ""
+              }
+            </div>`
+          : ""
+      }
+    `;
+  }
+
+  function totemHtml(p, best, prices, filtered) {
+    const { fuel, vehicle, vehicleIdx, vehicles, userPos, brlFormatter: brl, numFormatter: num } = p;
+    if (!best || best.price == null) return "";
+
+    const avg = prices.length > 1 ? prices.reduce((a, b) => a + b, 0) / prices.length : null;
+    const diff = avg != null ? avg - best.price : 0;
+    const where = [best.brand, best.address, best.dist != null ? `${num(best.dist)} km de você` : ""]
+      .filter(Boolean)
+      .join(" · ");
+
+    return `
+      <section class="totem" aria-label="Menor preço">
+        <div class="eyebrow">Menor preço de ${UI.esc(fuel.label.toLowerCase())} ${filtered ? "com estes filtros" : "em Cuiabá"}</div>
+        <div class="totem-price">
+          <span class="price price-xl">${brl(best.price)}</span>
+          <small>por litro</small>
+        </div>
+        ${diff > 0.004 ? `<p class="totem-diff">${brl(diff)} abaixo da média dos ${prices.length} postos com preço</p>` : ""}
+        <h2 class="totem-name">${UI.esc(best.name)}</h2>
+        <p class="totem-addr">${UI.esc(where)}</p>
+        <p>${UI.freshness(best, { long: true })}</p>
+        ${UI.tank(best, vehicle.tank, brl)}
+        ${UI.vehicleLine("listVehicleSel", vehicles, vehicleIdx)}
+        <div class="summary-actions">
+          <a class="btn btn-primary" href="${UI.routeUrl(best, userPos)}" target="_blank" rel="noopener">
+            ${UI.icon("navigation")}<span>Traçar rota</span>
+          </a>
+          <button type="button" class="btn btn-quiet" data-station-id="${UI.esc(best.id)}" id="listBestMapBtn">
+            ${UI.icon("map")}<span>Ver no mapa</span>
+          </button>
+          <button type="button" class="btn btn-quiet btn-square" id="listBestHistBtn" aria-label="Histórico de preço" title="Histórico de preço">
+            ${UI.icon("chart-line")}
+          </button>
+        </div>
+      </section>
+    `;
+  }
+
+  function emptyHtml(p) {
+    const fuel = UI.esc(p.fuel.label.toLowerCase());
+    if (p.status === "loading") {
+      return `<div class="state"><strong>Carregando os preços da ANP…</strong>Isso leva alguns segundos.</div>`;
+    }
+    if (p.status === "error") {
+      return `<div class="state"><strong>Não foi possível carregar os preços.</strong>Confira a conexão e tente de novo.
+        <div><button type="button" class="btn btn-quiet" id="listRetryBtn">Tentar de novo</button></div></div>`;
+    }
+    if (p.status === "offline") {
+      return `<div class="state"><strong>Os preços precisam do servidor.</strong>Rode "node server.js" e abra http://localhost:8080.
+        ${p.hideNoPrice ? '<div><button type="button" class="btn btn-quiet" id="listShowAllBtn">Mostrar postos sem preço</button></div>' : ""}</div>`;
+    }
+    return `<div class="state"><strong>Nenhum posto com preço de ${fuel}.</strong>A pesquisa da ANP visita só uma parte dos postos a cada semana.
+      ${p.hideNoPrice ? '<div><button type="button" class="btn btn-quiet" id="listShowAllBtn">Mostrar postos sem preço</button></div>' : ""}</div>`;
   }
 
   function render(params) {
     if (!container) return;
-    if (params) lastParams = params;
+    if (params) {
+      if (lastParams && lastParams.fuel.id !== params.fuel.id) {
+        // A faixa de preço é de um combustível só
+        filters.min = filters.max = null;
+        currentPage = 1;
+      } else if (lastParams && lastParams.rows.length !== params.rows.length) {
+        currentPage = 1;
+      }
+      lastParams = params;
+    }
     if (!lastParams) return;
 
-    const {
-      rows,
-      bestStation,
-      fuel,
-      fuels,
-      vehicle,
-      vehicleIdx,
-      vehicles,
-      onVehicleChange,
-      userPos,
-      brlFormatter,
-      numFormatter,
-      anpDate,
-    } = lastParams;
+    const p = lastParams;
+    const { rows: allRows, fuel, fuels, vehicle, userPos, brlFormatter: brl, numFormatter: num, week } = p;
 
-    const currentVeh =
-      vehicle ||
-      (typeof VEHICLES !== "undefined" ? VEHICLES[1] : null) || {
-        name: "Hyundai HB20",
-        tank: 50,
-      };
-    const vehIdx = vehicleIdx !== undefined ? vehicleIdx : 1;
-    const allVehs =
-      vehicles || (typeof VEHICLES !== "undefined" ? VEHICLES : []);
-    const onVehChange = onVehicleChange || onVehicleChangeCallback;
+    const opts = filterOptions(allRows);
+    pruneFilters(opts);
+    const filtered = activeCount() > 0;
+    const rows = filtered ? applyFilters(allRows) : allRows;
 
-    // Seletor de opções de veículos
-    const vehicleOptionsHtml = allVehs
-      .map(
-        (v, i) =>
-          `<option value="${i}" ${i === vehIdx ? "selected" : ""}>${v.name} (${v.tank}L)</option>`,
+    // Com filtro, o destaque é o menor preço entre os postos filtrados
+    const priced = rows.filter((r) => r.price != null).sort((a, b) => a.price - b.price);
+    const best = filtered ? priced.find((r) => !r.stale) || priced[0] || null : p.bestStation;
+
+    const totalItems = rows.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    currentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const startIdx = (currentPage - 1) * PAGE_SIZE;
+    const endIdx = Math.min(startIdx + PAGE_SIZE, totalItems);
+
+    const rowsHtml = rows
+      .slice(startIdx, endIdx)
+      .map((r, i) =>
+        UI.stationRow(r, {
+          rank: startIdx + i + 1,
+          selected: false,
+          best: best && r.id === best.id,
+          brl,
+          num,
+          tank: vehicle.tank,
+        }),
       )
       .join("");
 
-    // 1. Header & Hero Escuro (Mobile — início)
-    const fuelTabsHtml = fuels
-      .map((f) => {
-        const isActive = f.id === fuel.id;
-        return `<button
-        data-fuel-id="${f.id}"
-        class="fuel-tab-btn px-4 py-2 rounded-full font-bold text-xs transition cursor-pointer ${
-          isActive
-            ? "bg-amber-400 text-slate-950 shadow-sm ring-1 ring-amber-300"
-            : "bg-slate-800/80 text-slate-200 hover:bg-slate-700/80"
-        }"
-      >
-        ${f.shortLabel}
-      </button>`;
-      })
-      .join("");
+    const sortLabel = p.sort === "dist" && userPos ? "mais perto primeiro" : p.sort === "both" && userPos ? "preço e distância" : "menor preço primeiro";
+    const countLabel = filtered
+      ? `${totalItems} de ${allRows.length}`
+      : `${totalItems} ${p.hideNoPrice ? "com preço" : "no cadastro"}`;
 
-    // Preço médio para calcular "vs. média"
-    const validPrices = rows.map((r) => r.price).filter((p) => p != null);
-    const avgPrice = validPrices.length
-      ? validPrices.reduce((a, b) => a + b, 0) / validPrices.length
-      : null;
-
-    // Card do Menor Preço em Destaque
-    let heroCardHtml = "";
-    if (bestStation && bestStation.price != null) {
-      const diffAvg = avgPrice ? avgPrice - bestStation.price : 0;
-      const distStr =
-        bestStation.dist != null
-          ? `${numFormatter(bestStation.dist)} km`
-          : "Cuiabá";
-      const bestFull =
-        bestStation.full ?? bestStation.price * currentVeh.tank;
-      const bestHalf = bestStation.half ?? bestFull / 2;
-
-      heroCardHtml = `
-        <div class="mt-4 rounded-2xl bg-white p-4 sm:p-5 text-slate-900 shadow-md border border-slate-200/80">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Menor preço ${userPos ? "perto de você" : "em Cuiabá"}</span>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0e7048] text-white font-extrabold text-[10px] uppercase shadow-xs">
-              <i data-lucide="star" class="w-3 h-3 fill-amber-300 text-amber-300"></i>
-              <span>Menor preço</span>
-            </span>
-          </div>
-          <div class="mt-1 flex items-baseline justify-between gap-2">
-            <div class="text-3xl sm:text-4xl font-black text-slate-950 tabular-nums">
-              ${brlFormatter(bestStation.price)}
-            </div>
-            ${diffAvg > 0 ? `<div class="text-xs font-bold text-[#0e7048]">- ${brlFormatter(diffAvg)} vs. média</div>` : ""}
-          </div>
-          <div class="mt-1 font-bold text-sm text-slate-800 truncate">${bestStation.name}</div>
-          <div class="text-xs text-slate-500 truncate">${bestStation.address} · ${distStr}</div>
-
-          <!-- Simulação Tanque Cheio e Meio Tanque -->
-          <div class="mt-3.5 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
-            <div class="rounded-xl bg-emerald-50 border border-emerald-200/80 p-2 text-center">
-              <div class="text-[10px] font-bold text-[#0e7048] uppercase tracking-wide flex items-center justify-center gap-1">
-                <i data-lucide="fuel" class="w-3 h-3 text-[#0e7048]"></i>
-                <span>Tanque cheio (${currentVeh.tank}L)</span>
-              </div>
-              <div class="text-base font-black text-emerald-950 mt-0.5 tabular-nums">
-                ${brlFormatter(bestFull)}
-              </div>
-            </div>
-            <div class="rounded-xl bg-amber-50 border border-amber-200/80 p-2 text-center">
-              <div class="text-[10px] font-bold text-amber-700 uppercase tracking-wide flex items-center justify-center gap-1">
-                <i data-lucide="gauge" class="w-3 h-3 text-amber-600"></i>
-                <span>Meio tanque (${currentVeh.tank / 2}L)</span>
-              </div>
-              <div class="text-base font-black text-amber-950 mt-0.5 tabular-nums">
-                ${brlFormatter(bestHalf)}
-              </div>
-            </div>
-          </div>
+    // Os filtros ficam colados na lista que eles filtram
+    const listHtml = allRows.length
+      ? `<div class="section-head">
+          <h2>${filtered ? "Postos filtrados" : "Todos os postos"}</h2>
+          <span>${countLabel} · ${sortLabel}</span>
         </div>
-      `;
-    }
+        <div class="sheet-block">
+          <div class="list-filters">${filtersHtml(opts, brl)}</div>
+          ${
+            totalItems
+              ? `<ol class="rows">${rowsHtml}</ol>
+                ${totalItems > PAGE_SIZE ? UI.pager({ prefix: "list", start: startIdx, end: endIdx, total: totalItems, page: currentPage, pages: totalPages, noun: "postos" }) : ""}`
+              : `<div class="state"><strong>Nenhum posto com esses filtros.</strong>Amplie a faixa de preço ou tire um filtro.
+                  <div><button type="button" class="btn btn-quiet" id="listClearEmptyBtn">Limpar filtros</button></div></div>`
+          }
+        </div>`
+      : emptyHtml(p);
 
-    // Lista dos seguintes (Posições 2, 3, 4...) com Paginação de 10 em 10
-    const otherStations = bestStation
-      ? rows.filter((r) => r.id !== bestStation.id)
-      : rows;
-    const totalItems = otherStations.length;
-    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
-
-    const startIdx = (currentPage - 1) * PAGE_SIZE;
-    const endIdx = Math.min(startIdx + PAGE_SIZE, totalItems);
-    const pageStations = otherStations.slice(startIdx, endIdx);
-
-    const listItemsHtml = pageStations
-      .map((r, idx) => {
-        const position = startIdx + idx + 2;
-        const distStr =
-          r.dist != null ? `${numFormatter(r.dist)} km` : "Cuiabá";
-        const rFull =
-          r.full ?? (r.price != null ? r.price * currentVeh.tank : null);
-        const rHalf = r.half ?? (rFull != null ? rFull / 2 : null);
-
-        return `
-        <div
-          data-station-click="${r.id}"
-          class="py-3 border-b border-slate-100 hover:bg-slate-50 transition px-2.5 sm:px-3 rounded-xl cursor-pointer"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-start gap-2.5 min-w-0 flex-1">
-              <div class="w-6 shrink-0 text-slate-400 font-extrabold text-xs text-center mt-0.5">${position}</div>
-              <div class="min-w-0 flex-1">
-                <div class="font-bold text-sm text-slate-900 truncate">${r.name}</div>
-                <div class="text-xs text-slate-500 truncate mt-0.5">${r.address} · ${distStr}</div>
-                ${
-                  rFull != null
-                    ? `
-                  <div class="mt-1 text-[11px] font-bold text-slate-600 flex items-center gap-2 flex-wrap">
-                    <span class="text-emerald-700">Tanque (${currentVeh.tank}L): <strong>${brlFormatter(rFull)}</strong></span>
-                    <span class="text-slate-300">·</span>
-                    <span class="text-amber-700">Meio: <strong>${brlFormatter(rHalf)}</strong></span>
-                  </div>
-                `
-                    : ""
-                }
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-base font-black text-slate-900 tabular-nums">
-                ${r.price != null ? brlFormatter(r.price) : '<span class="text-xs text-slate-400">Sem preço</span>'}
-              </div>
-              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">por litro</div>
-            </div>
-          </div>
-        </div>
-      `;
-      })
-      .join("");
+    const scroller = container;
+    const scrollTop = scroller.scrollTop;
 
     container.innerHTML = `
-      <div class="min-h-full pb-20 bg-slate-50">
-        <!-- Topo Escuro (Mobile — início) -->
-        <header class="bg-[#091e26] text-white p-5 sm:p-6 pt-5 rounded-b-3xl shadow-lg">
-          <div class="flex items-center justify-between gap-2 mb-4">
-            <div class="flex items-center gap-2.5">
-              <img src="assets/logo-icon.svg" class="w-8 h-8 rounded-xl shadow-md" alt="Combustível Certo" />
-              <div class="flex items-baseline font-black text-lg tracking-tight leading-none">
-                <span class="text-white">Combustível</span>
-                <span class="text-[#f5b723] ml-1.5">Certo</span>
-              </div>
+      <div class="page">
+        <header class="page-head">
+          <div class="page-inner">
+            <div class="brandline">
+              <img src="assets/logo-icon.svg" alt="" />
+              <span class="wordmark">Combustível <b>Certo</b></span>
+              <span class="place">Cuiabá, MT</span>
             </div>
-            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-              Cuiabá, MT
-            </span>
+            <div id="listFuelTabs">${UI.fuelSeg(fuels, fuel.id, "seg-block")}</div>
           </div>
-
-          <h1 class="text-2xl sm:text-3xl font-extrabold leading-tight text-white tracking-tight">
-            O combustível mais barato, <span class="text-amber-400">perto de você.</span>
-          </h1>
-
-          <!-- Seletor de Carro para Simulação -->
-          <div class="mt-4 flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-slate-800/80 border border-slate-700/80">
-            <div class="flex items-center gap-2 min-w-0">
-              <span class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-300 flex items-center justify-center shrink-0">
-                <i data-lucide="car" class="w-4 h-4 text-amber-300"></i>
-              </span>
-              <div class="min-w-0">
-                <div class="text-[10px] uppercase font-bold text-slate-400 leading-none">Simulação para</div>
-                <div class="text-xs font-black text-white truncate mt-0.5">${currentVeh.name} (${currentVeh.tank}L)</div>
-              </div>
-            </div>
-            <select
-              id="listVehicleSel"
-              class="text-xs font-bold bg-slate-900 text-amber-300 border border-slate-700 rounded-xl px-2.5 py-1.5 outline-none cursor-pointer shrink-0 max-w-[170px] truncate shadow-xs"
-            >
-              ${vehicleOptionsHtml}
-            </select>
-          </div>
-
-          <!-- Abas de Combustível -->
-          <div id="listFuelTabs" class="flex items-center gap-2 mt-4 overflow-x-auto pb-1 scroll-thin">
-            ${fuelTabsHtml}
-          </div>
-
-          <!-- Botão Usar Minha Localização -->
-          <button
-            id="listGpsBtn"
-            class="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#0e7048] hover:bg-[#095436] active:scale-[0.99] text-white font-extrabold text-sm shadow-md transition cursor-pointer"
-          >
-            <i data-lucide="locate-fixed" class="w-4 h-4 text-white"></i>
-            <span>Usar minha localização</span>
-          </button>
-
-          <!-- Card Destaque Menor Preço -->
-          ${heroCardHtml}
         </header>
 
-        <!-- Seção: Mais baratos perto de você -->
-        <section class="p-4 sm:p-6 pt-5 max-w-xl mx-auto">
-          <div class="flex items-center justify-between pb-2 mb-1 px-1">
-            <h2 class="font-black text-sm text-slate-800">Mais baratos perto de você</h2>
-            <span class="text-[11px] font-semibold text-slate-400">ANP · ${anpDate}</span>
-          </div>
-          <div class="bg-white rounded-2xl border border-slate-200/80 p-3 sm:p-4 shadow-xs">
-            ${listItemsHtml || '<p class="py-8 text-center text-sm text-slate-400">Nenhum posto encontrado.</p>'}
+        <div class="page-inner">
+          ${totemHtml(p, best, priced.map((r) => r.price), filtered)}
 
-            <!-- Barra de Paginação da Lista (10 em 10 - Inquebrável em telas menores) -->
-            ${
-              totalItems > PAGE_SIZE
-                ? `
-              <div class="mt-3.5 pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2 px-1 text-xs">
-                <span class="text-slate-500 font-semibold text-[11px] whitespace-nowrap shrink-0">
-                  <strong>${startIdx + 1}–${endIdx}</strong> de <strong>${totalItems}</strong><span class="hidden sm:inline"> postos</span>
-                </span>
-                <div class="flex items-center gap-1 shrink-0">
-                  <button
-                    id="listPrevBtn"
-                    type="button"
-                    title="Página anterior"
-                    class="h-8 px-2 sm:px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-slate-700 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
-                    ${currentPage === 1 ? "disabled" : ""}
-                  >
-                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
-                    <span class="hidden sm:inline text-xs">Anterior</span>
-                  </button>
+          ${
+            !userPos && totalItems
+              ? `<div class="locate-line">${UI.icon("locate-fixed")}<span>Veja a distância até cada posto.</span><button type="button" class="link" id="listGpsBtn">Usar minha localização</button></div>`
+              : ""
+          }
 
-                  <span class="h-8 px-2 sm:px-2.5 flex items-center justify-center font-extrabold text-slate-800 text-xs bg-slate-100 rounded-lg whitespace-nowrap">
-                    ${currentPage} / ${totalPages}
-                  </span>
+          ${listHtml}
 
-                  <button
-                    id="listNextBtn"
-                    type="button"
-                    title="Próxima página"
-                    class="h-8 px-2 sm:px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-slate-700 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
-                    ${currentPage === totalPages ? "disabled" : ""}
-                  >
-                    <span class="hidden sm:inline text-xs">Próxima</span>
-                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
-                  </button>
-                </div>
-              </div>
-            `
-                : ""
-            }
-          </div>
-        </section>
+          <p class="footnote">
+            Preços da pesquisa semanal da ANP${week ? `, semana de ${UI.esc(week)}` : ""}. A pesquisa visita uma amostra dos postos e o valor na bomba pode ter mudado desde a coleta.
+          </p>
+        </div>
       </div>
     `;
+    scroller.scrollTop = scrollTop;
 
-    // Eventos
-    const vehicleSel = container.querySelector("#listVehicleSel");
-    if (vehicleSel) {
-      vehicleSel.addEventListener("change", (e) => {
-        const idx = parseInt(e.target.value, 10);
-        if (!isNaN(idx)) {
-          if (typeof onVehChange === "function") {
-            onVehChange(idx);
-          }
-        }
-      });
-    }
+    container.querySelector("#listVehicleSel")?.addEventListener("change", (e) => {
+      const idx = parseInt(e.target.value, 10);
+      const cb = p.onVehicleChange || onVehicleChangeCallback;
+      if (!isNaN(idx) && typeof cb === "function") cb(idx);
+    });
 
-    container.querySelectorAll(".fuel-tab-btn").forEach((btn) => {
+    container.querySelectorAll("#listFuelTabs [data-fuel-id]").forEach((btn) => {
       btn.addEventListener("click", () => {
         currentPage = 1;
-        if (typeof onFuelChangeCallback === "function") {
-          onFuelChangeCallback(btn.dataset.fuelId);
-        }
+        if (typeof onFuelChangeCallback === "function") onFuelChangeCallback(btn.dataset.fuelId);
       });
     });
 
-    const gpsBtn = container.querySelector("#listGpsBtn");
-    if (gpsBtn) {
-      gpsBtn.addEventListener("click", () => {
-        if (typeof onUseGpsCallback === "function") {
-          onUseGpsCallback();
-        }
-      });
-    }
+    bindFilters(opts, brl);
 
-    container.querySelector("#listPrevBtn")?.addEventListener("click", () => {
-      if (currentPage > 1) {
-        currentPage--;
-        render();
-      }
+    container.querySelector("#listGpsBtn")?.addEventListener("click", () => {
+      if (typeof onUseGpsCallback === "function") onUseGpsCallback();
+    });
+    container.querySelector("#listShowAllBtn")?.addEventListener("click", () => {
+      if (typeof onShowAllCallback === "function") onShowAllCallback();
+    });
+    container.querySelector("#listRetryBtn")?.addEventListener("click", () => {
+      if (typeof onRetryCallback === "function") onRetryCallback();
+    });
+    container.querySelector("#listBestHistBtn")?.addEventListener("click", () => {
+      if (best && typeof onShowHistoryCallback === "function") onShowHistoryCallback(best);
     });
 
-    container.querySelector("#listNextBtn")?.addEventListener("click", () => {
-      if (currentPage < totalPages) {
-        currentPage++;
-        render();
-      }
-    });
+    const goToPage = (delta) => {
+      currentPage += delta;
+      render();
+      container.querySelector(".section-head")?.scrollIntoView({ block: "start" });
+    };
+    container.querySelector("#listPrevBtn")?.addEventListener("click", () => goToPage(-1));
+    container.querySelector("#listNextBtn")?.addEventListener("click", () => goToPage(1));
 
-    container.querySelectorAll("[data-station-click]").forEach((el) => {
+    container.querySelectorAll("[data-station-id]").forEach((el) => {
       el.addEventListener("click", () => {
-        const stationId = el.dataset.stationClick;
-        const station = rows.find((r) => r.id === stationId);
-        if (station && typeof onSelectStationCallback === "function") {
-          onSelectStationCallback(station);
-        }
+        const station = allRows.find((r) => r.id === el.dataset.stationId) || (best && best.id === el.dataset.stationId ? best : null);
+        if (station && typeof onSelectStationCallback === "function") onSelectStationCallback(station);
       });
     });
 
-    if (window.lucide && typeof window.lucide.createIcons === 'function') {
-      window.lucide.createIcons();
+    UI.icons();
+  }
+
+  function bindFilters(opts, brl) {
+    const refresh = (focusSel) => {
+      currentPage = 1;
+      render();
+      if (focusSel) container.querySelector(focusSel)?.focus();
+    };
+
+    container.querySelector("#listFiltersBtn")?.addEventListener("click", () => {
+      filtersOpen = !filtersOpen;
+      render();
+      container.querySelector("#listFiltersBtn")?.focus();
+    });
+    const clear = () => {
+      clearFilters();
+      refresh("#listFiltersBtn");
+    };
+    container.querySelector("#listClearBtn")?.addEventListener("click", clear);
+    container.querySelector("#listClearEmptyBtn")?.addEventListener("click", clear);
+
+    container.querySelectorAll("[data-brand]").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const b = chip.dataset.brand;
+        if (filters.brands.has(b)) filters.brands.delete(b);
+        else filters.brands.add(b);
+        refresh(`[data-brand="${CSS.escape(b)}"]`);
+      });
+    });
+
+    const bairro = container.querySelector("#listBairro");
+    bairro?.addEventListener("focus", () => bairro.select());
+    const pickBairro = () => {
+      const typed = bairro.value.trim().toLowerCase();
+      const match = typed ? opts.bairros.find((b) => b.toLowerCase() === typed) : "";
+      if (match === undefined || match === filters.bairro) return;
+      filters.bairro = match;
+      refresh();
+    };
+    // Enquanto a pessoa digita, só reage à escolha na lista de sugestões ou ao campo limpo
+    bairro?.addEventListener("input", (e) => {
+      if (!bairro.value || !e.inputType || e.inputType === "insertReplacementText") pickBairro();
+    });
+    bairro?.addEventListener("change", () => {
+      pickBairro();
+      bairro.value = filters.bairro;
+    });
+
+    // Faixa de preço: arrastar só atualiza o rótulo; a lista muda ao soltar
+    const range = container.querySelector("#listRange");
+    const minEl = container.querySelector("#listMin");
+    const maxEl = container.querySelector("#listMax");
+    const out = container.querySelector("#listRangeOut");
+    if (!range || !minEl || !maxEl) return;
+    const span = opts.hi - opts.lo;
+    const sync = (moved) => {
+      let a = parseFloat(minEl.value);
+      let b = parseFloat(maxEl.value);
+      if (a > b) {
+        if (moved === minEl) minEl.value = a = b;
+        else maxEl.value = b = a;
+      }
+      range.style.setProperty("--a", ((a - opts.lo) / span) * 100 + "%");
+      range.style.setProperty("--b", ((b - opts.lo) / span) * 100 + "%");
+      if (out) out.textContent = `${brl(a)} a ${brl(b)}`;
+      return [a, b];
+    };
+    for (const el of [minEl, maxEl]) {
+      el.addEventListener("input", () => sync(el));
+      el.addEventListener("change", () => {
+        const [a, b] = sync(el);
+        filters.min = a > opts.lo ? cents(a) : null;
+        filters.max = b < opts.hi ? cents(b) : null;
+        refresh("#" + el.id);
+      });
     }
   }
 
-  return {
-    init,
-    render
-  };
+  return { init, render };
 })();
