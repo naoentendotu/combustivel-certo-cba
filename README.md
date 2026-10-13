@@ -17,11 +17,14 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 
 ### Principais funcionalidades
 - **Mapa (tela inicial):** cada posto é um marcador com o preço. O menor preço fica em verde cheio; o terço mais barato aparece em verde e o terço mais caro, apagado. Preço fora da última semana pesquisada vem em âmbar com ícone de atenção.
-- **Painel do mapa:** no celular é uma folha inferior com o posto selecionado (preço, data da coleta, custo do tanque e rota) que abre para a lista; no desktop a lista fica fixa ao lado do mapa. Filtros: *Menor preço*, *Mais perto* e *Ocultar sem preço* (ligado por padrão).
-- **Lista:** o menor preço do momento em destaque, com a diferença para a média, e todos os postos em ordem, cada um com a data da coleta.
-- **Pesquisa:** todos os registros da ANP com filtros por combustível, bairro, bandeira, período, faixa de preço e datas. Lista no celular, tabela em telas largas.
-- **10 mais baratos:** ranking com a variação de preço de cada posto nas últimas 4 semanas ou em todo o histórico. Tocar num posto leva ao mapa.
-- **Estados:** carregamento, erro (com "Tentar de novo") e vazio explicados no mapa, na lista, na pesquisa e no ranking.
+- **Painel do mapa:** no celular é uma folha inferior com o posto selecionado (preço, data da coleta, custo do tanque e rota) que abre para a lista; no desktop a lista fica fixa ao lado do mapa. Filtros: *Menor preço*, *Mais perto* e *Ocultar sem preço* (ligado por padrão, atrás do botão de filtros).
+- **Lista:** o menor preço do momento em destaque, com a diferença para a média, e todos os postos em ordem, cada um com a data da coleta. Filtros por faixa de preço (barra de duas pontas), bandeira (chips) e bairro (busca).
+- **Histórico de preço:** em qualquer posto com preço, o botão de histórico abre o gráfico e as coletas da ANP daquele posto em 1 mês ou em todo o histórico.
+- **10 mais baratos:** ranking com a variação de preço de cada posto em 1 mês ou em todo o histórico. Tocar num posto leva ao mapa.
+- **Estados:** carregamento, erro (com "Tentar de novo") e vazio explicados no mapa, na lista, no histórico e no ranking.
+
+### Implementações futuras
+- **Rota desenhada no mapa:** traçar o trajeto de carro até o posto selecionado (ou o destacado) dentro do próprio mapa, com um servidor próprio do [OSRM](https://github.com/Project-OSRM/osrm-backend). Hoje o botão "Traçar rota" abre o trajeto no Google Maps.
 
 ### Fonte de dados e limitações
 1. **Cadastro dos postos:** Obtido via API de Revendedores da ANP (`/api/anp`), mapeado com coordenadas geográficas de Cuiabá.
@@ -74,9 +77,9 @@ combustivel-certo/
 │   │   ├── components/
 │   │   │   ├── ui.js            # Peças compartilhadas: linha de posto, paginação, data da coleta, avisos
 │   │   │   ├── bottom-sheet.js  # Painel do mapa: folha inferior no celular, coluna fixa no desktop
-│   │   │   ├── list-view.js     # Tela de lista mobile com menor preço em destaque
+│   │   │   ├── list-view.js     # Lista com menor preço em destaque e filtros
 │   │   │   ├── map-view.js      # Integração com Leaflet, pins e geolocalização
-│   │   │   ├── modals.js        # Modal do ranking Top 10 e tela de dados ANP
+│   │   │   ├── modals.js        # Ranking dos 10 mais baratos e histórico de preço do posto
 │   │   │   └── nav.js           # Navegação: barra inferior no celular, lateral no desktop
 │   │   └── data/
 │   │       └── stations-data.js # Base geoespacial local de postos de Cuiabá (fallback)
@@ -149,7 +152,7 @@ Todas as rotas retornam respostas em formato JSON (`application/json`).
   - `bandeira`: Bandeira do posto (ex.: `VIBRA`, `IPIRANGA`, `BRANCA`).
   - `precoMin` / `precoMax`: Valores numéricos de corte (ex.: `precoMin=6.00&precoMax=6.60`).
   - `coletaDe` / `coletaAte`: Datas da coleta no formato `AAAA-MM-DD`.
-  - `semanas`: Quantidade de semanas mais recentes a incluir (`1`, `4` ou `todas`; padrão: `1`).
+  - `semanas`: Quantidade de semanas mais recentes a incluir (um número, como `1`, `4`, `26` ou `52`, ou `todas`; padrão: `1`).
   - `semana`: ID específico de uma semana (ex.: `2026-10-04_2026-10-10`).
 - **Resposta:**
   ```json
