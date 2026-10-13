@@ -9,7 +9,7 @@
     "start": "node server.js",
     "precos:atualizar": "node scripts/atualizar-precos.js",
     "precos:status": "node scripts/atualizar-precos.js --status",
-    "test": "node --test test/precos.test.js",
+    "test": "node --test test/precos.test.js test/calc.test.js",
     "test:live": "node --test test/anp-ao-vivo.test.js"
   }
 }
