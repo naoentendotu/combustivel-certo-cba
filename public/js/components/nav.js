@@ -30,6 +30,8 @@ const Navigation = (() => {
     document.querySelectorAll('.nav-tab-btn').forEach(btn => {
       const isCurrent = btn.dataset.navTab === tab;
       btn.classList.toggle('is-active', isCurrent);
+      if (isCurrent) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
     });
 
     // Notifica coordenador
