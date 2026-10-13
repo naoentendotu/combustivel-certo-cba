@@ -26,9 +26,7 @@ const Modals = (() => {
   const nomePosto = r => tc(r.fantasia || r.razao);
   const setPressed = (seletor, attr, valor) => document.querySelectorAll(seletor).forEach(b => b.setAttribute('aria-pressed', String(b.dataset[attr] === valor)));
 
-  const tendencia = dif => Math.abs(dif) < 0.005
-    ? `${UI.icon('minus')}estável`
-    : `${UI.icon(dif > 0 ? 'arrow-up-right' : 'arrow-down-right')}${dif > 0 ? 'subiu' : 'caiu'} ${precoTabela(Math.abs(dif))}`;
+  const tendencia = dif => UI.trend(dif, precoTabela);
 
   // Preço ao longo do tempo: eixo de preço à esquerda, datas embaixo, o último ponto de cada linha é o preço atual.
   // Com várias séries (ranking), só a destacada fica em verde; as outras ficam em cinza ao fundo.

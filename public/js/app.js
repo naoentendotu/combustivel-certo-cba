@@ -8,6 +8,7 @@
   const PREFS_KEY = 'cc_prefs_v1';
   const GPS_HINT_KEY = 'cc_gps_hint_v1';
   const ANP_KEY = 'cc_anp_v1';
+  const TREND_KEY = 'cc_tendencia_lida_v1'; // por combustível, a semana cujo aviso de tendência a pessoa já fechou
   const ANP_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const ANP_URL = location.protocol === 'file:' ? null : 'api/anp';
 
@@ -31,6 +32,13 @@
   };
   const prefs = store.get(PREFS_KEY) || {};
 
+  // "Meu carro": um veículo com nome e tanque informados pela pessoa, sempre o último da lista
+  const CUSTOM_IDX = VEHICLES.length;
+  const validCar = (name, tank) => !!name && Number.isInteger(tank) && tank >= 1 && tank <= 200;
+  if (prefs.custom && validCar(prefs.custom.name, prefs.custom.tank)) {
+    VEHICLES.push({ name: String(prefs.custom.name).slice(0, 40), tank: prefs.custom.tank, custom: true });
+  }
+
   const state = {
     stations: [],
     prices: {},
@@ -47,17 +55,62 @@
     currentView: 'map' // O MAPA É A PÁGINA INICIAL!
   };
 
+  // Link compartilhado: ?posto=<cnpj>&combustivel=<id> abre o app naquele posto
+  const link = new URLSearchParams(location.search);
+  if (FUELS.some(f => f.id === link.get('combustivel'))) state.fuel = link.get('combustivel');
+  if (/^\d{14}$/.test(link.get('posto') || '')) state.activeId = 'anp-' + link.get('posto');
+
   let centeredOnBest = false;
 
-  const savePrefs = () => store.set(PREFS_KEY, { fuel: state.fuel, vehicle: state.vehicle, sort: state.sort, hideNoPrice: state.hideNoPrice });
+  const savePrefs = () => store.set(PREFS_KEY, { fuel: state.fuel, vehicle: state.vehicle, sort: state.sort, hideNoPrice: state.hideNoPrice, custom: VEHICLES[CUSTOM_IDX] || null });
 
   function setVehicle(idx) {
     const i = parseInt(idx, 10);
+    if (i === -1) {
+      render(); // devolve o seletor ao veículo atual
+      return openCarDialog();
+    }
     if (!isNaN(i) && typeof VEHICLES !== 'undefined' && VEHICLES[i]) {
       state.vehicle = i;
       savePrefs();
       render();
     }
+  }
+
+  function openCarDialog() {
+    const car = VEHICLES[CUSTOM_IDX];
+    document.getElementById('carroNome').value = car?.name || '';
+    document.getElementById('carroTanque').value = car?.tank || '';
+    document.getElementById('carroRemover').classList.toggle('hidden', !car);
+    document.getElementById('modalCarro').classList.remove('hidden');
+    document.getElementById('carroNome').focus();
+  }
+
+  const closeCarDialog = () => document.getElementById('modalCarro').classList.add('hidden');
+
+  function bindCarDialog() {
+    const modal = document.getElementById('modalCarro');
+    document.getElementById('carroForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const name = document.getElementById('carroNome').value.trim();
+      const tank = Number(document.getElementById('carroTanque').value);
+      if (!validCar(name, tank)) return UI.toast('Informe um nome e um tanque entre 1 e 200 litros.');
+      VEHICLES[CUSTOM_IDX] = { name, tank, custom: true };
+      state.vehicle = CUSTOM_IDX;
+      savePrefs();
+      closeCarDialog();
+      render();
+    });
+    document.getElementById('carroRemover').addEventListener('click', () => {
+      VEHICLES.length = CUSTOM_IDX;
+      if (state.vehicle === CUSTOM_IDX) state.vehicle = 1;
+      savePrefs();
+      closeCarDialog();
+      render();
+    });
+    document.getElementById('carroClose').addEventListener('click', closeCarDialog);
+    modal.addEventListener('click', e => { if (e.target === modal) closeCarDialog(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCarDialog(); });
   }
 
   // Normalização de Postos
@@ -85,6 +138,9 @@
     'DIESEL S500': 'diesel',
     'GAS NATURAL VEICULAR': 'gnv'
   };
+
+  // Produto da ANP usado na tendência da semana de cada combustível
+  const TREND_PRODUCT = { gasolina: 'GASOLINA COMUM', etanol: 'ETANOL', diesel: 'DIESEL S10' };
 
   // Carregamento de Preços da ANP
   async function loadPrices() {
@@ -138,11 +194,15 @@
 
     const rows = state.stations.map(s => {
       const cnpj = s.id.slice(4);
-      const p = state.prices[cnpj]?.[fuel.id];
+      const doPosto = state.prices[cnpj];
+      const p = doPosto?.[fuel.id];
+      const flex = Calc.flex(doPosto?.gasolina?.preco, doPosto?.etanol?.preco, tank);
+      if (flex) flex.datasDiferentes = doPosto.gasolina.semana !== doPosto.etanol.semana;
       const price = p?.preco ?? null;
       return {
         ...s,
         price,
+        flex,
         full: price != null ? price * tank : null,
         half: price != null ? (price * tank) / 2 : null,
         stale: !!p && p.semana !== state.pricesWeekId,
@@ -187,12 +247,14 @@
 
     if (state.hideNoPrice) ranked = ranked.filter(r => r.price != null);
 
-    return { rows: ranked, best, fuel, vehicle, vehicleIdx: state.vehicle };
+    const trend = Calc.tendenciaSemana(state.registros, TREND_PRODUCT[fuel.id]);
+
+    return { rows: ranked, best, fuel, vehicle, vehicleIdx: state.vehicle, trend };
   }
 
   // Renderização Central
   function render() {
-    const { rows, best, fuel, vehicle, vehicleIdx } = compute();
+    const { rows, best, fuel, vehicle, vehicleIdx, trend } = compute();
 
     // 1. Atualiza Marcadores no Mapa
     MapView.renderMarkers(rows, best?.id, state.activeId, brl);
@@ -220,6 +282,11 @@
     }
     renderMapStatus(rows.length, fuel);
 
+    // Aviso da tendência: depois de fechado, só volta quando a ANP publicar outra semana
+    const notice = trend && (store.get(TREND_KEY) || {})[fuel.id] !== state.pricesWeekId ? UI.trendNotice(trend, fuel.label, brl) : '';
+    const mapNotice = document.getElementById('mapNotice');
+    if (mapNotice) mapNotice.innerHTML = notice;
+
     // 3. Atualiza Abas Flutuantes de Combustível no Mapa
     renderFloatingFuelTabs();
 
@@ -237,6 +304,7 @@
       brlFormatter: brl,
       numFormatter: num,
       week: state.pricesWeek,
+      notice,
       sort: state.sort,
       hideNoPrice: state.hideNoPrice,
       status: state.pricesStatus
@@ -269,6 +337,15 @@
         setFuel(btn.dataset.fuelId);
       });
     });
+  }
+
+  // Compartilha o preço do posto com um link que abre o app nele
+  function shareStation(station) {
+    const fuel = FUELS.find(f => f.id === state.fuel) || FUELS[0];
+    const url = `${location.origin}${location.pathname}?posto=${station.id.slice(4)}&combustivel=${fuel.id}`;
+    const text = `${fuel.label} a ${brl(station.price)} · ${station.name}${station.bairro ? ', ' + station.bairro : ''}. Coleta da ANP em ${station.priceDate}.`;
+    if (navigator.share) navigator.share({ title: 'Combustível Certo', text, url }).catch(() => {}); // a pessoa pode fechar a janela de compartilhar
+    else window.open('https://wa.me/?text=' + encodeURIComponent(`${text} ${url}`), '_blank', 'noopener');
   }
 
   const showHistory = station => Modals.abrirHistorico(station, state.fuel, state.registros);
@@ -401,6 +478,7 @@
         requestLocation(false);
       },
       onShowHistory: showHistory,
+      onShare: shareStation,
       onVehicleChange: setVehicle
     });
 
@@ -419,6 +497,7 @@
       onShowAll: showStationsWithoutPrice,
       onRetry: loadPrices,
       onShowHistory: showHistory,
+      onShare: shareStation,
       onFuelChange: setFuel
     });
 
@@ -442,6 +521,8 @@
       }
     });
 
+    bindCarDialog();
+
     // 7. Botão GPS flutuante sobre o mapa (Zoom na localização atual)
     document.getElementById('floatingGpsBtn')?.addEventListener('click', () => {
       requestLocation(true);
@@ -450,6 +531,18 @@
     if (!store.get(GPS_HINT_KEY)) {
       document.getElementById('floatingGpsBtn')?.classList.add('is-hint');
     }
+
+    // Copiar o endereço de um posto e fechar o aviso da tendência (no mapa ou na lista)
+    document.addEventListener('click', e => {
+      const copiar = e.target.closest('[data-copiar]');
+      if (copiar) {
+        if (!navigator.clipboard) return UI.toast('Este navegador não permite copiar.');
+        return navigator.clipboard.writeText(copiar.dataset.copiar).then(() => UI.toast('Endereço copiado.'), () => UI.toast('Não foi possível copiar o endereço.'));
+      }
+      if (!e.target.closest('[data-fechar-aviso]')) return;
+      store.set(TREND_KEY, { ...store.get(TREND_KEY), [state.fuel]: state.pricesWeekId });
+      render();
+    });
 
     // 8. Botão 10 Mais Baratos no cabeçalho/mapa
     document.getElementById('top10QuickBtn')?.addEventListener('click', () => {
@@ -461,6 +554,12 @@
 
     // 9. Renderiza estado inicial
     render();
+    // Link compartilhado: o mapa abre no posto do link
+    const linked = state.stations.find(s => s.id === state.activeId);
+    if (linked) {
+      centeredOnBest = true;
+      MapView.focusLocation(linked.lat, linked.lng, 16);
+    }
 
     // 10. Carrega preços da ANP (em segundo plano)
     loadPrices();

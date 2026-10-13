@@ -252,22 +252,79 @@ button, select, input { font-family: inherit; }
 .fresh svg { width: 13px; height: 13px; flex: none; }
 .fresh.is-stale { color: var(--warn-ink); font-weight: 600; }
 
-/* Select discreto (veículo) */
-.select-inline {
-  appearance: none;
-  -webkit-appearance: none;
-  max-width: 100%;
-  padding: 6px 28px 6px 10px;
-  border: 1px solid var(--line-2);
+/* Linha de contexto: etanol x gasolina e tendência da semana */
+/* Endereço que copia ao toque */
+.addr-copy { display: block; max-width: 100%; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: copy; }
+.addr-copy:hover { text-decoration: underline; }
+
+/* Dica em balão (etanol ou gasolina): o botão abre o balão acima dele */
+.hint { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 4px 0; border: 0; background: none; font-size: 13.5px; font-weight: 600; color: var(--green-deep); cursor: pointer; }
+.hint svg { width: 16px; height: 16px; flex: none; }
+.totem .hint { color: #fff; }
+.tip {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  max-width: min(300px, calc(100vw - 16px));
+  padding: 10px 12px;
+  border: 0;
   border-radius: var(--r-sm);
-  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234b5751' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  text-overflow: ellipsis;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.4;
+  overflow: visible;
+  filter: drop-shadow(0 3px 10px rgba(22, 33, 28, 0.28));
 }
-.select-inline:hover { border-color: var(--ink-3); }
+.tip b { font-weight: 600; color: var(--green-deep); }
+.tip p { margin: 0; }
+.tip p + p { margin-top: 8px; }
+.tip::after { content: ''; position: absolute; top: 100%; left: 14px; border: 7px solid transparent; border-top-color: var(--surface); }
+
+#carroForm wa-input { display: block; margin-bottom: 12px; }
+
+/* Aviso que a pessoa fecha depois de ler (tendência da semana) */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 380px;
+  padding: 10px 8px 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+.notice > svg { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--green); }
+.notice span { flex: 1; min-width: 0; }
+.notice span svg { display: inline-block; width: 14px; height: 14px; margin-right: 3px; vertical-align: -2px; }
+.notice b { font-weight: 600; color: var(--ink); }
+.notice-close { flex: none; display: inline-flex; padding: 8px; margin: -6px 0; border: 0; border-radius: 999px; background: none; color: var(--ink-3); cursor: pointer; }
+.notice-close:hover { background: var(--paper); color: var(--ink); }
+.notice-close svg { width: 16px; height: 16px; }
+.page-inner > .notice { max-width: none; margin-top: 16px; box-shadow: none; }
+
+/* Web Awesome (seletor de veículo, bairro, faixa de preço e campos do "Meu carro") com as cores e formas da marca */
+:root, .wa-dark {
+  --wa-font-family-body: var(--font);
+  --wa-color-brand-fill-loud: var(--green);
+  --wa-color-brand-border-loud: var(--green);
+  --wa-color-focus: var(--green);
+  --wa-form-control-activated-color: var(--green);
+  --wa-form-control-border-color: var(--line-2);
+  --wa-form-control-border-radius: var(--r-sm);
+}
+.totem {
+  --wa-color-focus: var(--gold);
+  --wa-form-control-activated-color: var(--gold);
+  --wa-form-control-border-color: rgba(255, 255, 255, 0.25);
+  --wa-form-control-background-color: var(--night-2);
+}
+/* Até o componente carregar, o espaço dele fica reservado sem mostrar o conteúdo cru */
+wa-select:not(:defined), wa-slider:not(:defined), wa-input:not(:defined) { visibility: hidden; }
 
 /* Filtros da lista */
 .chip small { font-weight: 500; color: var(--ink-3); font-variant-numeric: tabular-nums; }
@@ -302,7 +359,7 @@ button, select, input { font-family: inherit; }
 }
 .filter-label svg { width: 15px; height: 15px; flex: none; }
 
-/* Faixa de preço: barra com duas pontas */
+/* Faixa de preço: valor escolhido ao lado do rótulo */
 .range2-out {
   margin-left: auto;
   font-family: var(--font-num);
@@ -311,64 +368,13 @@ button, select, input { font-family: inherit; }
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
-.range2 {
-  position: relative;
-  height: 28px;
-  background: linear-gradient(to right, var(--line) var(--a), var(--green) var(--a), var(--green) var(--b), var(--line) var(--b)) center / 100% 6px no-repeat;
-  border-radius: 999px;
-}
-.range2 input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  background: none;
-  pointer-events: none;
-  appearance: none;
-  -webkit-appearance: none;
-}
-.range2 input::-webkit-slider-runnable-track { background: none; }
-.range2 input::-moz-range-track { background: none; }
-.range2 input::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 3px solid var(--green);
-  background: var(--surface);
-  box-shadow: 0 1px 4px rgba(22, 33, 28, 0.25);
-  cursor: grab;
-  pointer-events: auto;
-}
-.range2 input::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 3px solid var(--green);
-  background: var(--surface);
-  box-shadow: 0 1px 4px rgba(22, 33, 28, 0.25);
-  cursor: grab;
-  pointer-events: auto;
-}
-.range2 input:active::-webkit-slider-thumb { cursor: grabbing; background: var(--green-tint); }
-.range2 input:active::-moz-range-thumb { cursor: grabbing; background: var(--green-tint); }
 
-/* Busca de bairro */
-.search-field { position: relative; }
-.search-field svg { position: absolute; left: 12px; top: 50%; width: 16px; height: 16px; margin-top: -8px; color: var(--ink-3); pointer-events: none; }
-.search-field input {
-  width: 100%;
-  height: 40px;
-  padding: 0 12px 0 36px;
-  border: 1px solid var(--line-2);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 14.5px;
+/* Chips e botão de filtros: anel de foco suave */
+.chip:focus-visible, .filter-toggle:focus-visible {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(14, 112, 72, 0.2);
 }
-.search-field input:hover { border-color: var(--ink-3); }
 
 /* Paginação */
 .pager {
@@ -508,7 +514,7 @@ button, select, input { font-family: inherit; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.summary-head p { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.summary-head .addr-copy { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .summary-price { text-align: right; flex: none; }
 .summary-price small { display: block; margin-top: 4px; font-size: 12.5px; color: var(--ink-3); }
 .summary-fresh { margin-top: 8px; }
@@ -535,7 +541,7 @@ button, select, input { font-family: inherit; }
   color: var(--ink-2);
 }
 .veh-line svg { width: 18px; height: 18px; flex: none; }
-.veh-line .select-inline { min-width: 0; flex: 1 1 auto; }
+.veh-line wa-select { min-width: 0; flex: 1 1 auto; }
 
 .summary-actions { display: flex; gap: 8px; margin-top: 12px; }
 .summary-actions .btn { flex: 1; }
@@ -599,7 +605,7 @@ button, select, input { font-family: inherit; }
   background: var(--surface);
   box-shadow: var(--shadow-float);
 }
-.map-bar img { width: 36px; height: 36px; border-radius: 10px; flex: none; }
+.map-bar img { width: 40px; height: 40px; flex: none; }
 .map-bar .seg { border: none; background: transparent; padding: 0; overflow-x: auto; scrollbar-width: none; }
 .map-bar .seg::-webkit-scrollbar { display: none; }
 
@@ -925,7 +931,7 @@ button, select, input { font-family: inherit; }
 
 .page-head { background: var(--surface); border-bottom: 1px solid var(--line); padding: 14px 0; }
 .brandline { display: flex; align-items: center; gap: 10px; }
-.brandline img { width: 32px; height: 32px; border-radius: 9px; }
+.brandline img { width: 38px; height: 38px; }
 .wordmark { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
 .wordmark b { font-weight: 700; color: var(--green); }
 .brandline .place { margin-left: auto; font-size: 13.5px; color: var(--ink-3); }
@@ -952,13 +958,6 @@ button, select, input { font-family: inherit; }
 .totem .tank dt { color: rgba(255, 255, 255, 0.7); }
 .totem .tank dd { color: #fff; }
 .totem .veh-line { color: rgba(255, 255, 255, 0.75); }
-.totem .select-inline {
-  background-color: var(--night-2);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-}
-.totem .select-inline option { color: var(--ink); background: #fff; }
 .totem .btn-primary { background: var(--gold); color: var(--night); }
 .totem .btn-primary:hover { background: #ffc94a; }
 .totem .btn-quiet { background: transparent; color: #fff; border-color: rgba(255, 255, 255, 0.3); }
@@ -1128,7 +1127,7 @@ button, select, input { font-family: inherit; }
     border-top: none;
     border-right: 1px solid var(--line);
   }
-  .nav-brand { display: block; width: 40px; height: 40px; margin: 0 auto 14px; border-radius: 11px; }
+  .nav-brand { display: block; width: 48px; height: 48px; margin: 0 auto 14px; }
   .nav-tab-btn { flex: none; height: 62px; }
   .nav-tab-btn.is-active::before { top: 14px; bottom: 14px; left: 0; right: auto; width: 3px; height: auto; border-radius: 0 3px 3px 0; }
 
