@@ -2,7 +2,7 @@
  * Combustível Certo · Componente da Barra de Navegação Inferior
  */
 const Navigation = (() => {
-  let activeTab = 'map'; // O MAPA É A PÁGINA INICIAL POR PADRÃO!
+  let activeTab = 'map';
   let onViewChangeCallback = null;
 
   function init({ defaultTab = 'map', onViewChange } = {}) {
@@ -19,14 +19,12 @@ const Navigation = (() => {
       });
     });
 
-    // Aplica a aba inicial
     switchTab(activeTab);
   }
 
   function switchTab(tab) {
     activeTab = tab;
 
-    // Atualiza botões
     document.querySelectorAll('.nav-tab-btn').forEach(btn => {
       const isCurrent = btn.dataset.navTab === tab;
       btn.classList.toggle('is-active', isCurrent);
@@ -34,7 +32,6 @@ const Navigation = (() => {
       else btn.removeAttribute('aria-current');
     });
 
-    // Notifica coordenador
     if (typeof onViewChangeCallback === 'function') {
       onViewChangeCallback(tab);
     }

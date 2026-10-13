@@ -4,7 +4,6 @@
 (() => {
   'use strict';
 
-  // Chaves de armazenamento
   const PREFS_KEY = 'cc_prefs_v1';
   const GPS_HINT_KEY = 'cc_gps_hint_v1';
   const ANP_KEY = 'cc_anp_v1';
@@ -12,12 +11,10 @@
   const ANP_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const ANP_URL = location.protocol === 'file:' ? null : 'api/anp';
 
-  // Formatadores
   const brl = n => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const num = (n, d = 1) => n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
   const plain = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
-  // Cálculo de Distância (Haversine em km)
   function haversineKm(a, b) {
     const R = 6371, rad = Math.PI / 180;
     const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
@@ -25,7 +22,6 @@
     return 2 * R * Math.asin(Math.sqrt(x));
   }
 
-  // Estado da Aplicação
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
@@ -52,7 +48,7 @@
     sort: prefs.sort || 'price', // 'price' | 'dist' | 'both'
     userPos: null,
     activeId: null,
-    currentView: 'map' // O MAPA É A PÁGINA INICIAL!
+    currentView: 'map'
   };
 
   // Link compartilhado: ?posto=<cnpj>&combustivel=<id> abre o app naquele posto
@@ -113,7 +109,6 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCarDialog(); });
   }
 
-  // Normalização de Postos
   function normalizeStation(cnpj, razao, endereco, bairro, dist, lat, lng, mask) {
     lat = parseFloat(lat); lng = parseFloat(lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || haversineKm(CUIABA, { lat, lng }) > 60) return null;
@@ -130,7 +125,6 @@
     };
   }
 
-  // Mapeamento de Produto da ANP para ID de combustível
   const FUEL_BY_PRODUCT = {
     'GASOLINA COMUM': 'gasolina',
     'ETANOL': 'etanol',
@@ -142,7 +136,6 @@
   // Produto da ANP usado na tendência da semana de cada combustível
   const TREND_PRODUCT = { gasolina: 'GASOLINA COMUM', etanol: 'ETANOL', diesel: 'DIESEL S10' };
 
-  // Carregamento de Preços da ANP
   async function loadPrices() {
     if (location.protocol === 'file:') return;
     state.pricesStatus = 'loading';
@@ -186,7 +179,6 @@
     }
   }
 
-  // Cálculo e Ordenação dos Postos
   function compute() {
     const fuel = FUELS.find(f => f.id === state.fuel) || FUELS[0];
     const vehicle = (typeof VEHICLES !== 'undefined' ? VEHICLES[state.vehicle] : null) || { name: 'Padrão', tank: 50 };
@@ -214,12 +206,10 @@
     const byDist = (a, b) => (a.dist ?? Infinity) - (b.dist ?? Infinity);
     const byPrice = (a, b) => (a.price ?? Infinity) - (b.price ?? Infinity) || byDist(a, b);
 
-    // Identifica com precisão o posto com o MENOR PREÇO real do combustível selecionado
     const withValidPrice = rows.filter(r => typeof r.price === 'number' && Number.isFinite(r.price) && r.price > 0);
     withValidPrice.sort(byPrice);
     const best = withValidPrice.find(r => !r.stale) || withValidPrice[0] || null;
 
-    // Ordenação da lista de postos (menor preço, mais perto ou ambos combinados)
     let ranked;
     if (state.sort === 'dist') {
       ranked = [...rows].sort((a, b) => byDist(a, b) || byPrice(a, b));
@@ -252,14 +242,11 @@
     return { rows: ranked, best, fuel, vehicle, vehicleIdx: state.vehicle, trend };
   }
 
-  // Renderização Central
   function render() {
     const { rows, best, fuel, vehicle, vehicleIdx, trend } = compute();
 
-    // 1. Atualiza Marcadores no Mapa
     MapView.renderMarkers(rows, best?.id, state.activeId, brl);
 
-    // 2. Atualiza Bottom Sheet no Mapa (Mostra o posto ativo ou o de menor preço)
     const activeStation = (state.activeId ? rows.find(r => r.id === state.activeId) : null) || best;
     if (activeStation) {
       BottomSheet.update({
@@ -287,10 +274,8 @@
     const mapNotice = document.getElementById('mapNotice');
     if (mapNotice) mapNotice.innerHTML = notice;
 
-    // 3. Atualiza Abas Flutuantes de Combustível no Mapa
     renderFloatingFuelTabs();
 
-    // 4. Atualiza Tela de Lista (Mobile — início)
     ListView.render({
       rows,
       bestStation: best,
@@ -327,7 +312,6 @@
     }
   }
 
-  // Seletor de combustível sobre o mapa
   function renderFloatingFuelTabs() {
     const bar = document.getElementById('mapFloatingFuels');
     if (!bar) return;
@@ -375,7 +359,6 @@
     el.querySelector('[data-status="retry"]')?.addEventListener('click', loadPrices);
   }
 
-  // Troca de Visão (Mapa vs. Lista)
   function setView(viewName) {
     state.currentView = viewName;
     const viewMap = document.getElementById('viewMap');
@@ -391,7 +374,6 @@
     }
   }
 
-  // Geolocation (GPS & Zoom na localização atual)
   // auto: pedido feito ao abrir o site, sem a pessoa tocar em nada. Não mostra aviso se ela recusar
   // e só leva o mapa até ela se estiver na região de Cuiabá.
   function requestLocation(shouldZoom = true, { auto = false } = {}) {
@@ -442,12 +424,9 @@
     );
   }
 
-  // Inicialização
   function start() {
-    // 1. Carrega postos embutidos
     state.stations = ANP_SNAPSHOT.map(r => normalizeStation(...r)).filter(Boolean);
 
-    // 2. Inicializa o Mapa (PÁGINA INICIAL!)
     MapView.init('map', station => {
       state.activeId = station.id;
       MapView.setActivePin(station.id);
@@ -455,7 +434,6 @@
       render();
     });
 
-    // 3. Inicializa Bottom Sheet com callbacks completos
     BottomSheet.init({
       containerId: 'bottomSheet',
       backdropId: 'sheetBackdrop',
@@ -486,7 +464,6 @@
       onVehicleChange: setVehicle
     });
 
-    // 4. Inicializa Lista (Mobile — início)
     ListView.init({
       containerId: 'viewList',
       onSelectStation: station => {
@@ -505,13 +482,11 @@
       onFuelChange: setFuel
     });
 
-    // 5. Inicializa Barra de Navegação (Mapa inicial por padrão)
     Navigation.init({
       defaultTab: 'map',
       onViewChange: setView
     });
 
-    // 6. Inicializa Modais (Top 10 e histórico de preço)
     Modals.init({
       onFocusStation: stationId => {
         const st = state.stations.find(s => s.id === stationId);
@@ -527,7 +502,6 @@
 
     bindCarDialog();
 
-    // 7. Botão GPS flutuante sobre o mapa (Zoom na localização atual)
     document.getElementById('floatingGpsBtn')?.addEventListener('click', () => {
       requestLocation(true);
     });
@@ -548,7 +522,6 @@
       render();
     });
 
-    // 8. Botão 10 Mais Baratos no cabeçalho/mapa
     document.getElementById('top10QuickBtn')?.addEventListener('click', () => {
       Modals.abrirTop10(state.fuel);
     });
@@ -556,7 +529,6 @@
     // No desktop a lista fica ao lado do mapa: ao cruzar essa largura o mapa muda de tamanho
     window.matchMedia('(min-width: 1024px)').addEventListener('change', () => MapView.invalidateSize());
 
-    // 9. Renderiza estado inicial
     render();
     // Link compartilhado: o mapa abre no posto do link
     const linked = state.stations.find(s => s.id === state.activeId);
@@ -565,15 +537,13 @@
       MapView.focusLocation(linked.lat, linked.lng, 16);
     }
 
-    // 10. Carrega preços da ANP (em segundo plano)
     loadPrices();
 
-    // 11. Pede a localização logo ao abrir e leva o mapa até a pessoa.
+    // Pede a localização logo ao abrir e leva o mapa até a pessoa.
     // Num link compartilhado o mapa fica no posto do link; a localização só serve para a distância.
     requestLocation(!state.activeId, { auto: true });
   }
 
-  // Executa ao carregar o DOM
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       if (window.lucide && typeof window.lucide.createIcons === 'function') {

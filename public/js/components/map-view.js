@@ -18,10 +18,8 @@ const MapView = (() => {
       attributionControl: true
     }).setView([CUIABA.lat, CUIABA.lng], 14);
 
-    // Controles de zoom no canto superior direito
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // Provedor de Mapa (OpenStreetMap com fallback para Esri)
     const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
     const TILE_PROVIDERS = [
       {
@@ -50,12 +48,6 @@ const MapView = (() => {
     })(0);
 
     markerLayer = L.layerGroup().addTo(map);
-
-    // Quando clica no mapa vazio, deseleciona
-    map.on('click', (e) => {
-      if (e.originalEvent.target.closest('.map-pin')) return;
-      // Pode manter o cartão ou fechar se desejar
-    });
 
     return map;
   }
@@ -136,7 +128,6 @@ const MapView = (() => {
       userMarker = L.marker([lat, lng], { icon, zIndexOffset: 2000, title: 'Minha localização' }).addTo(map);
     }
 
-    // Círculo de raio translúcido ao redor do usuário (conforme modelo "Mobile — mapa")
     if (userCircle) {
       userCircle.setLatLng([lat, lng]);
       userCircle.setRadius(radiusMeters);
