@@ -16,13 +16,15 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 - Traçado de rota direto no Google Maps.
 
 ### Principais funcionalidades
-- **Mapa Interativo (Página Inicial):** Visualização geoespacial dos postos em Cuiabá usando Leaflet, com pins destacando o menor preço, aviso de dados desatualizados e raio de alcance do usuário.
-- **Drawer Inferior (Bottom Sheet):** Painel expansível com gestos de toque (touch drag) no celular:
-  - Modo recolhido: exibe o posto com menor preço, distância e botão rápido de rota.
-  - Modo expandido: permite ordenar por *Menor preço* ou *Mais perto*, com paginação de 10 em 10 postos.
-- **Visão Lista:** Listagem paginada alternativa com seletor de combustíveis, hero card do menor preço e cálculo de economia versus média.
-- **Visão Dados ANP:** Tabela completa de preços com filtros por combustível, bairro, bandeira, período e faixa de preço. Responsiva: exibe cards confortáveis no celular e tabela estruturada no desktop.
-- **Modal 10 Mais Baratos:** Estatísticas consolidadas, campeão do menor preço, variação de preços e gráfico comparativo das últimas semanas.
+- **Mapa (tela inicial):** cada posto é um marcador com o preço. O menor preço fica em verde cheio; o terço mais barato aparece em verde e o terço mais caro, apagado. Preço fora da última semana pesquisada vem em âmbar com ícone de atenção.
+- **Painel do mapa:** no celular é uma folha inferior com o posto selecionado (preço, data da coleta, custo do tanque e rota) que abre para a lista; no desktop a lista fica fixa ao lado do mapa. Filtros: *Menor preço*, *Mais perto* e *Ocultar sem preço* (ligado por padrão, atrás do botão de filtros).
+- **Lista:** o menor preço do momento em destaque, com a diferença para a média, e todos os postos em ordem, cada um com a data da coleta. Filtros por faixa de preço (barra de duas pontas), bandeira (chips) e bairro (busca).
+- **Histórico de preço:** em qualquer posto com preço, o botão de histórico abre o gráfico e as coletas da ANP daquele posto em 1 mês ou em todo o histórico.
+- **10 mais baratos:** ranking com a variação de preço de cada posto em 1 mês ou em todo o histórico. Tocar num posto leva ao mapa.
+- **Estados:** carregamento, erro (com "Tentar de novo") e vazio explicados no mapa, na lista, no histórico e no ranking.
+
+### Implementações futuras
+- **Rota desenhada no mapa:** traçar o trajeto de carro até o posto selecionado (ou o destacado) dentro do próprio mapa, com um servidor próprio do [OSRM](https://github.com/Project-OSRM/osrm-backend). Hoje o botão "Traçar rota" abre o trajeto no Google Maps.
 
 ### Fonte de dados e limitações
 1. **Cadastro dos postos:** Obtido via API de Revendedores da ANP (`/api/anp`), mapeado com coordenadas geográficas de Cuiabá.
@@ -43,8 +45,8 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 
 ### Frontend
 - **HTML5 Semântico:** Estrutura acessível com metatags responsivas.
-- **CSS Customizado (`public/css/app.css`):** Design system com paleta oficial verde floresta (`#0e7048`) e dourado (`#f5b723`), pins Leaflet, animações e layout fluido.
-- **Tailwind CSS (CDN):** Utilitários de layout e tipografia.
+- **CSS próprio (`public/css/app.css`):** design system em variáveis CSS (cores, raios, sombras, tipografia) e componentes. Sem framework de CSS.
+- **Tipografia:** Barlow para texto e Barlow Semi Condensed para preços, via Google Fonts.
 - **Leaflet (1.9.4 CDN):** Renderização de mapas e camadas interativas.
 - **Lucide Icons (CDN):** Ícones vetoriais em substituição a emojis e caracteres Unicode.
 
@@ -73,11 +75,12 @@ combustivel-certo/
 │   ├── js/
 │   │   ├── app.js           # Orquestrador central e gerenciador de estado da aplicação
 │   │   ├── components/
-│   │   │   ├── bottom-sheet.js  # Drawer inferior expansível do mapa com paginação
-│   │   │   ├── list-view.js     # Tela de lista mobile com menor preço em destaque
+│   │   │   ├── ui.js            # Peças compartilhadas: linha de posto, paginação, data da coleta, avisos
+│   │   │   ├── bottom-sheet.js  # Painel do mapa: folha inferior no celular, coluna fixa no desktop
+│   │   │   ├── list-view.js     # Lista com menor preço em destaque e filtros
 │   │   │   ├── map-view.js      # Integração com Leaflet, pins e geolocalização
-│   │   │   ├── modals.js        # Modal do ranking Top 10 e tela de dados ANP
-│   │   │   └── nav.js           # Barra de navegação inferior fixa (Lista, Mapa, Dados)
+│   │   │   ├── modals.js        # Ranking dos 10 mais baratos e histórico de preço do posto
+│   │   │   └── nav.js           # Navegação: barra inferior no celular, lateral no desktop
 │   │   └── data/
 │   │       └── stations-data.js # Base geoespacial local de postos de Cuiabá (fallback)
 │   └── index.html           # Aplicação web principal de página única
@@ -149,7 +152,7 @@ Todas as rotas retornam respostas em formato JSON (`application/json`).
   - `bandeira`: Bandeira do posto (ex.: `VIBRA`, `IPIRANGA`, `BRANCA`).
   - `precoMin` / `precoMax`: Valores numéricos de corte (ex.: `precoMin=6.00&precoMax=6.60`).
   - `coletaDe` / `coletaAte`: Datas da coleta no formato `AAAA-MM-DD`.
-  - `semanas`: Quantidade de semanas mais recentes a incluir (`1`, `4` ou `todas`; padrão: `1`).
+  - `semanas`: Quantidade de semanas mais recentes a incluir (um número, como `1`, `4`, `26` ou `52`, ou `todas`; padrão: `1`).
   - `semana`: ID específico de uma semana (ex.: `2026-10-04_2026-10-10`).
 - **Resposta:**
   ```json

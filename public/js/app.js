@@ -34,8 +34,10 @@
   const state = {
     stations: [],
     prices: {},
+    registros: [],
     pricesWeek: '',
     pricesWeekId: '',
+    pricesStatus: location.protocol === 'file:' ? 'offline' : 'loading', // 'loading' | 'ok' | 'error' | 'offline'
     fuel: FUELS.some(f => f.id === prefs.fuel) ? prefs.fuel : 'gasolina',
     vehicle: typeof prefs.vehicle === 'number' && typeof VEHICLES !== 'undefined' && VEHICLES[prefs.vehicle] ? prefs.vehicle : 1,
     hideNoPrice: prefs.hideNoPrice ?? true,
@@ -44,6 +46,8 @@
     activeId: null,
     currentView: 'map' // O MAPA É A PÁGINA INICIAL!
   };
+
+  let centeredOnBest = false;
 
   const savePrefs = () => store.set(PREFS_KEY, { fuel: state.fuel, vehicle: state.vehicle, sort: state.sort, hideNoPrice: state.hideNoPrice });
 
@@ -63,9 +67,10 @@
     const d = String(dist || '').trim().toUpperCase();
     return {
       id: 'anp-' + cnpj,
-      name: razao.replace(/[\s.,–-]*\b(LTDA|EIRELI|EPP|ME|S\/A|S\.A)\.?$/i, '').trim(),
-      brand: DIST_BRAND[d] || d || WHITE_LABEL.name,
-      address: [endereco, bairro].filter(Boolean).join(' · '),
+      name: UI.titleCase(razao.replace(/[\s.,–-]*\b(LTDA|EIRELI|EPP|ME|S\/A|S\.A)\.?$/i, '').trim()),
+      brand: DIST_BRAND[d] || UI.titleCase(d) || WHITE_LABEL.name,
+      address: UI.titleCase([endereco, bairro].filter(Boolean).join(' · ')),
+      bairro: UI.titleCase(bairro || ''),
       lat,
       lng,
       gnv: mask.includes('n')
@@ -84,11 +89,13 @@
   // Carregamento de Preços da ANP
   async function loadPrices() {
     if (location.protocol === 'file:') return;
+    state.pricesStatus = 'loading';
+    render();
     try {
       const res = await fetch('api/precos?municipio=CUIABA&uf=MT&semanas=todas', { signal: AbortSignal.timeout(180000) });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const j = await res.json();
-      if (!Array.isArray(j.registros)) return;
+      if (!Array.isArray(j.registros)) throw new Error('resposta sem registros');
 
       const prices = {};
       for (const r of j.registros) {
@@ -105,11 +112,21 @@
         }
       }
       state.prices = prices;
+      state.registros = j.registros;
       state.pricesWeek = j.semanaReferencia?.periodo || '';
       state.pricesWeekId = j.semanaReferencia?.id || '';
+      state.pricesStatus = 'ok';
       render();
+      // Primeira carga: leva o mapa até o menor preço, se a pessoa ainda não escolheu um posto nem a localização
+      const { best } = compute();
+      if (best && !state.activeId && !state.userPos && !centeredOnBest) {
+        centeredOnBest = true;
+        MapView.focusLocation(best.lat, best.lng, 14);
+      }
     } catch (err) {
       console.warn('[Combustível Certo] Preços da ANP indisponíveis:', err);
+      state.pricesStatus = 'error';
+      render();
     }
   }
 
@@ -198,7 +215,10 @@
         brlFormatter: brl,
         numFormatter: num
       });
+    } else {
+      BottomSheet.hide();
     }
+    renderMapStatus(rows.length, fuel);
 
     // 3. Atualiza Abas Flutuantes de Combustível no Mapa
     renderFloatingFuelTabs();
@@ -216,7 +236,10 @@
       userPos: state.userPos,
       brlFormatter: brl,
       numFormatter: num,
-      anpDate: ANP_SNAPSHOT_DATE
+      week: state.pricesWeek,
+      sort: state.sort,
+      hideNoPrice: state.hideNoPrice,
+      status: state.pricesStatus
     });
 
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
@@ -224,51 +247,67 @@
     }
   }
 
-  // Abas Flutuantes de Combustível sobre o Mapa
+  function setFuel(fuelId) {
+    state.fuel = fuelId;
+    state.activeId = null; // volta o destaque para o menor preço do combustível escolhido
+    savePrefs();
+    render();
+    // Troca suave: os preços do novo combustível entram com um fade
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    for (const el of document.querySelectorAll('#viewList .page > .page-inner, #bottomSheet > *, .leaflet-marker-pane')) {
+      el.animate({ opacity: [0, 1] }, { duration: 220, easing: 'ease' });
+    }
+  }
+
+  // Seletor de combustível sobre o mapa
   function renderFloatingFuelTabs() {
     const bar = document.getElementById('mapFloatingFuels');
     if (!bar) return;
-
-    bar.innerHTML = FUELS.map(f => {
-      const isActive = f.id === state.fuel;
-      return `<button
-        data-floating-fuel="${f.id}"
-        class="px-3.5 py-1.5 rounded-full text-xs font-bold transition shadow-md cursor-pointer ${
-          isActive
-            ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 font-extrabold'
-            : 'bg-white text-slate-800 hover:bg-slate-100'
-        }"
-      >
-        ${f.shortLabel}
-      </button>`;
-    }).join('');
-
-    bar.querySelectorAll('[data-floating-fuel]').forEach(btn => {
+    bar.innerHTML = UI.fuelSeg(FUELS, state.fuel);
+    bar.querySelectorAll('[data-fuel-id]').forEach(btn => {
       btn.addEventListener('click', () => {
-        state.fuel = btn.dataset.floatingFuel;
-        state.activeId = null; // Reseta posto ativo para focar no menor preço do combustível!
-        savePrefs();
-        render();
+        setFuel(btn.dataset.fuelId);
       });
     });
   }
 
-  // Troca de Visão (Mapa vs. Lista vs. Dados)
+  const showHistory = station => Modals.abrirHistorico(station, state.fuel, state.registros);
+
+  function showStationsWithoutPrice() {
+    state.hideNoPrice = false;
+    savePrefs();
+    render();
+  }
+
+  // Quando não há posto para mostrar, o mapa explica o motivo e oferece a saída
+  function renderMapStatus(total, fuel) {
+    const el = document.getElementById('mapStatus');
+    if (!el) return;
+    if (total) return el.classList.add('hidden');
+
+    const showAll = state.hideNoPrice ? '<div><button type="button" class="btn btn-quiet btn-sm" data-status="all">Mostrar postos sem preço</button></div>' : '';
+    const byStatus = {
+      loading: '<strong>Carregando os preços da ANP…</strong>',
+      error: '<strong>Não foi possível carregar os preços.</strong>Confira a conexão e tente de novo.<div><button type="button" class="btn btn-quiet btn-sm" data-status="retry">Tentar de novo</button></div>',
+      offline: '<strong>Os preços precisam do servidor.</strong>Rode "node server.js" e abra http://localhost:8080.' + showAll,
+      ok: `<strong>Nenhum posto com preço de ${UI.esc(fuel.label.toLowerCase())}.</strong>A pesquisa da ANP visita só uma parte dos postos a cada semana.` + showAll
+    };
+    el.innerHTML = byStatus[state.pricesStatus] || byStatus.ok;
+    el.classList.remove('hidden');
+    el.querySelector('[data-status="all"]')?.addEventListener('click', showStationsWithoutPrice);
+    el.querySelector('[data-status="retry"]')?.addEventListener('click', loadPrices);
+  }
+
+  // Troca de Visão (Mapa vs. Lista)
   function setView(viewName) {
     state.currentView = viewName;
     const viewMap = document.getElementById('viewMap');
     const viewList = document.getElementById('viewList');
-    const viewDados = document.getElementById('viewDados');
 
     if (viewMap) viewMap.classList.toggle('is-hidden', viewName !== 'map');
     if (viewList) viewList.classList.toggle('is-hidden', viewName !== 'list');
-    if (viewDados) viewDados.classList.toggle('is-hidden', viewName !== 'dados');
 
-    if (viewName === 'map') {
-      MapView.invalidateSize();
-    } else if (viewName === 'dados') {
-      Modals.loadTabela();
-    }
+    if (viewName === 'map') MapView.invalidateSize();
 
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       window.lucide.createIcons();
@@ -278,7 +317,7 @@
   // Geolocation (GPS & Zoom na localização atual)
   function requestLocation(shouldZoom = true) {
     if (!navigator.geolocation) {
-      alert('Geolocalização não é suportada pelo seu navegador.');
+      UI.toast('Este navegador não informa a localização.');
       return;
     }
     const gpsBtn = document.getElementById('floatingGpsBtn');
@@ -315,7 +354,7 @@
         if (gpsBtn) gpsBtn.classList.remove('is-loading');
         console.warn('GPS erro:', err.message);
         if (!state.userPos) {
-          alert('Não foi possível obter sua localização exata. Verifique se o GPS está autorizado.');
+          UI.toast(err.code === 1 ? 'Localização bloqueada. Libere o acesso nas permissões do navegador.' : 'Não foi possível obter a sua localização. Tente de novo.');
         }
       },
       { enableHighAccuracy: true, timeout: 15000 }
@@ -361,6 +400,7 @@
       onRequestGps: () => {
         requestLocation(false);
       },
+      onShowHistory: showHistory,
       onVehicleChange: setVehicle
     });
 
@@ -376,11 +416,10 @@
       },
       onUseGps: () => requestLocation(true),
       onVehicleChange: setVehicle,
-      onFuelChange: fuelId => {
-        state.fuel = fuelId;
-        savePrefs();
-        render();
-      }
+      onShowAll: showStationsWithoutPrice,
+      onRetry: loadPrices,
+      onShowHistory: showHistory,
+      onFuelChange: setFuel
     });
 
     // 5. Inicializa Barra de Navegação (Mapa inicial por padrão)
@@ -389,7 +428,7 @@
       onViewChange: setView
     });
 
-    // 6. Inicializa Modais (Top 10 e Tabela ANP)
+    // 6. Inicializa Modais (Top 10 e histórico de preço)
     Modals.init({
       onFocusStation: stationId => {
         const st = state.stations.find(s => s.id === stationId);
@@ -414,8 +453,11 @@
 
     // 8. Botão 10 Mais Baratos no cabeçalho/mapa
     document.getElementById('top10QuickBtn')?.addEventListener('click', () => {
-      Modals.abrirTop10();
+      Modals.abrirTop10(state.fuel);
     });
+
+    // No desktop a lista fica ao lado do mapa: ao cruzar essa largura o mapa muda de tamanho
+    window.matchMedia('(min-width: 1024px)').addEventListener('change', () => MapView.invalidateSize());
 
     // 9. Renderiza estado inicial
     render();
