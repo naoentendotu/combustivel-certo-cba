@@ -1,8 +1,8 @@
 "use strict";
 // Servidor do Combustível Certo (Node 18+, sem dependências).
 //   /                    index.html
-//   /api/anp             cadastro de postos de Cuiabá (API de Revendedores da ANP, que não aceita chamadas do navegador)
-//   /api/precos          preços por posto em Cuiabá/MT (base local alimentada pela coleta semanal da ANP)
+//   /api/anp             cadastro de postos de Cuiabá e Várzea Grande (API de Revendedores da ANP, que não aceita chamadas do navegador)
+//   /api/precos          preços por posto em Cuiabá e Várzea Grande/MT (base local alimentada pela coleta semanal da ANP)
 //   /api/precos/status   situação da coleta: última execução, semanas importadas, histórico de tentativas
 // Uso:  node server.js   →   http://localhost:8080
 const http = require("http");
@@ -11,8 +11,26 @@ const path = require("path");
 const precos = require("./lib/anp-precos");
 
 /* ------------------------------------------------------- Cadastro de postos */
-const ANP_URL =
-  "https://revendedoresapi.anp.gov.br/v1/combustivel?municipio=CUIABA&uf=MT";
+const ANP_URL = "https://revendedoresapi.anp.gov.br/v1/combustivel";
+const ANP_MUNICIPIOS = ["CUIABA", "VARZEA GRANDE"];
+
+// Uma consulta por cidade à ANP, devolvidas juntas no mesmo formato da API
+async function baixarCadastro(fetchImpl) {
+  const partes = await Promise.all(
+    ANP_MUNICIPIOS.map(async (m) => {
+      const r = await fetchImpl(
+        `${ANP_URL}?municipio=${encodeURIComponent(m)}&uf=MT`,
+        { signal: AbortSignal.timeout(30000) },
+      );
+      if (!r.ok) throw new Error("ANP respondeu HTTP " + r.status);
+      return JSON.parse(await r.text());
+    }),
+  );
+  return JSON.stringify({
+    ...partes[0],
+    data: partes.flatMap((p) => p.data || []),
+  });
+}
 const CADASTRO_CACHE_MS = 60 * 60 * 1000; // o cadastro muda pouco: 1 consulta à ANP por hora
 
 function criarServidor({
@@ -23,11 +41,7 @@ function criarServidor({
   let cadastro = { ts: 0, body: null };
   async function getCadastro() {
     if (!cadastro.body || Date.now() - cadastro.ts > CADASTRO_CACHE_MS) {
-      const r = await fetchImpl(ANP_URL, {
-        signal: AbortSignal.timeout(30000),
-      });
-      if (!r.ok) throw new Error("ANP respondeu HTTP " + r.status);
-      cadastro = { ts: Date.now(), body: await r.text() };
+      cadastro = { ts: Date.now(), body: await baixarCadastro(fetchImpl) };
     }
     return cadastro.body;
   }

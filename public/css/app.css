@@ -607,7 +607,61 @@ wa-select:not(:defined), wa-slider:not(:defined), wa-input:not(:defined) { visib
 }
 .map-bar img { width: 40px; height: 40px; flex: none; }
 .map-bar .seg { border: none; background: transparent; padding: 0; overflow-x: auto; scrollbar-width: none; }
+.map-bar > div { min-width: 0; }
 .map-bar .seg::-webkit-scrollbar { display: none; }
+
+.map-chips { display: flex; flex-wrap: wrap; gap: 8px; max-width: 100%; }
+
+/* Botão de cidade: só o pino, à direita das opções de combustível */
+.city-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.city-btn svg { width: 19px; height: 19px; }
+.city-btn:hover { color: var(--ink); background: var(--paper); }
+.city-btn.is-filtered { background: var(--green-tint); color: var(--green-deep); }
+
+/* Menu de escolha (cidade) */
+.menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  min-width: 220px;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--ink);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+.menu button:hover { background: var(--paper); }
+.menu button svg { width: 16px; height: 16px; flex: none; color: var(--green); visibility: hidden; }
+.menu button[aria-checked='true'] { font-weight: 600; }
+.menu button[aria-checked='true'] svg { visibility: visible; }
 
 .map-chip {
   display: inline-flex;
@@ -940,7 +994,12 @@ wa-select:not(:defined), wa-slider:not(:defined), wa-input:not(:defined) { visib
 .brandline img { width: 38px; height: 38px; }
 .wordmark { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
 .wordmark b { font-weight: 700; color: var(--green); }
-.brandline .place { margin-left: auto; font-size: 13.5px; color: var(--ink-3); }
+.brandline .place { margin-left: auto; font-size: 13.5px; color: var(--ink-3); text-align: right; }
+.brandline .wordmark { white-space: nowrap; }
+.fuel-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.fuel-row > div { flex: 1; min-width: 0; }
+.fuel-row .seg { margin-top: 0; }
+.fuel-row .city-btn { border: 1px solid var(--line); }
 .page-head .seg { margin-top: 12px; }
 
 /* Placa de preço: o menor preço do momento */

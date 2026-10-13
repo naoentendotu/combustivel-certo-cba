@@ -5,6 +5,8 @@ const Modals = (() => {
   const modalTop10 = document.getElementById('modalTop10');
   let top10Periodo = '4';
   let top10Fuel = 'gasolina'; // 'gasolina' | 'etanol' | 'diesel'
+  let top10City = ''; // município da ANP; vazio = as duas cidades
+  let top10Place = '';
   let top10Seq = 0;
   let onFocusStationCallback = null;
   let ultimoFoco = null;
@@ -132,8 +134,10 @@ const Modals = (() => {
     }
   }
 
-  function abrirTop10(fuelId) {
+  function abrirTop10(fuelId, city = '', place = '') {
     if (!modalTop10) return;
+    top10City = city;
+    top10Place = place;
     if (fuelId && PRODUTO[fuelId]) {
       top10Fuel = fuelId;
       setPressed('[data-top10-fuel]', 'top10Fuel', top10Fuel);
@@ -176,7 +180,8 @@ const Modals = (() => {
     if (box.children.length) box.style.opacity = '0.5';
     else estado('Carregando…');
 
-    const params = new URLSearchParams({ municipio: 'CUIABA', uf: 'MT', combustivel: produto, semanas: top10Periodo });
+    const params = new URLSearchParams({ uf: 'MT', combustivel: produto, semanas: top10Periodo });
+    if (top10City) params.set('municipio', top10City);
 
     try {
       const res = await fetch('api/precos?' + params, { signal: AbortSignal.timeout(180000) });
@@ -238,7 +243,7 @@ const Modals = (() => {
             <span class="row-rank${i === 0 ? ' is-best' : ''}">${i + 1}</span>
             <span class="row-main">
               <span class="row-name">${esc(nomePosto(b))}</span>
-              <span class="row-sub">${esc(tc([b.bairro, b.bandeira].filter(Boolean).join(' · ')))}</span>
+              <span class="row-sub">${esc([tc(b.bairro), top10City ? '' : CITIES.find(c => c.id === b.municipio)?.label || tc(b.municipio), tc(b.bandeira)].filter(Boolean).join(' · '))}</span>
               ${antigo ? `<span class="rank-stale">${UI.icon('triangle-alert')}Atenção: sem coleta na última semana</span>` : ''}
             </span>
             <span class="r">
@@ -320,7 +325,7 @@ const Modals = (() => {
     const rotulo = ROTULO[histFuel];
     if (meta) meta.textContent = [rotulo, histPosto.brand, histPosto.address].filter(Boolean).join(' · ');
 
-    // "1 mês" são as 4 semanas mais recentes com coleta em Cuiabá, como na API
+    // "1 mês" são as 4 semanas mais recentes com coleta na região, como na API
     const semanas = [...new Set(histRegistros.map(r => r.semana))].sort().reverse();
     const noPeriodo = new Set(histPeriodo === 'todas' ? semanas : semanas.slice(0, parseInt(histPeriodo, 10)));
 

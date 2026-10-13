@@ -17,6 +17,7 @@ const BottomSheet = (() => {
   let stationRows = [];
   let currentFuel = null;
   let currentUserPos = null;
+  let currentPlace = "Cuiabá";
   let currentPage = 1;
   const PAGE_SIZE = 10;
   let currentVehicleIdx = 1;
@@ -233,6 +234,7 @@ const BottomSheet = (() => {
     rows,
     sort,
     hideNoPrice: hide,
+    place,
     fuel,
     vehicle,
     vehicleIdx,
@@ -261,6 +263,7 @@ const BottomSheet = (() => {
     if (vehicleIdx !== undefined) currentVehicleIdx = vehicleIdx;
     if (vehicles) allVehicles = vehicles;
     if (onVehicleChange) onVehicleChangeCb = onVehicleChange;
+    if (place) currentPlace = place;
     if (userPos !== undefined) currentUserPos = userPos;
     if (brlFormatter) formatBrl = brlFormatter;
     if (numFormatter) formatNum = numFormatter;
@@ -504,7 +507,7 @@ const BottomSheet = (() => {
         <div class="sheet-title">
           <div>
             <h3>${UI.esc(fuelName())}</h3>
-            <p>${totalItems} ${totalItems === 1 ? "posto" : "postos"}${hideNoPrice ? " com preço" : ""} em Cuiabá</p>
+            <p>${totalItems} ${totalItems === 1 ? "posto" : "postos"}${hideNoPrice ? " com preço" : ""} em ${UI.esc(currentPlace)}</p>
           </div>
           <button id="sheetCloseBtn" type="button" class="btn-icon" aria-label="Recolher a lista">${UI.icon("chevron-down")}</button>
         </div>

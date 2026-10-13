@@ -175,7 +175,7 @@ const ListView = (() => {
 
     return `
       <section class="totem wa-dark" aria-label="Menor preço">
-        <div class="eyebrow">Menor preço de ${UI.esc(fuel.label.toLowerCase())} ${filtered ? "com estes filtros" : "em Cuiabá"}</div>
+        <div class="eyebrow">Menor preço de ${UI.esc(fuel.label.toLowerCase())} ${filtered ? "com estes filtros" : "em " + UI.esc(p.place || "Cuiabá")}</div>
         ${UI.flexLine(best, fuel.id, brl)}
         <div class="totem-price">
           <span class="price price-xl">${brl(best.price)}</span>
@@ -299,9 +299,12 @@ const ListView = (() => {
             <div class="brandline">
               <img src="assets/logo-icon.png" alt="" />
               <span class="wordmark">Combustível <b>Certo</b></span>
-              <span class="place">Cuiabá, MT</span>
+              <span class="place">${UI.esc(p.place || "Cuiabá")}</span>
             </div>
-            <div id="listFuelTabs">${UI.fuelSeg(fuels, fuel.id, "seg-block")}</div>
+            <div class="fuel-row">
+              <div id="listFuelTabs">${UI.fuelSeg(fuels, fuel.id, "seg-block")}</div>
+              <button type="button" class="city-btn" popovertarget="cityMenu">${UI.icon("map-pin")}</button>
+            </div>
           </div>
         </header>
 

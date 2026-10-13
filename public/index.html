@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Combustível Certo · Cuiabá-MT</title>
-    <meta name="description" content="Preços de gasolina, etanol e diesel nos postos de Cuiabá-MT, pela pesquisa semanal da ANP." />
+    <title>Combustível Certo · Cuiabá e Várzea Grande-MT</title>
+    <meta name="description" content="Preços de gasolina, etanol e diesel nos postos de Cuiabá e Várzea Grande-MT, pela pesquisa semanal da ANP." />
     <meta name="theme-color" content="#ffffff" />
 
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
@@ -23,7 +23,7 @@
     <!-- Web Awesome: só o tema e os componentes usados (seletor, barra de faixa e campos) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/styles/themes/default.css" />
     <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/webawesome.loader.js"></script>
-    <link rel="stylesheet" href="css/app.css?v=9" />
+    <link rel="stylesheet" href="css/app.css?v=11" />
   </head>
 
   <body>
@@ -34,11 +34,14 @@
           <div class="map-bar">
             <img src="assets/logo-icon.png" alt="Combustível Certo" />
             <div id="mapFloatingFuels"></div>
+            <button id="mapCityBtn" type="button" class="city-btn" popovertarget="cityMenu"><i data-lucide="map-pin"></i></button>
           </div>
-          <button id="top10QuickBtn" type="button" class="map-chip">
-            <i data-lucide="trending-up"></i>
-            <span>10 mais baratos</span>
-          </button>
+          <div class="map-chips">
+            <button id="top10QuickBtn" type="button" class="map-chip">
+              <i data-lucide="trending-up"></i>
+              <span>10 mais baratos</span>
+            </button>
+          </div>
           <div id="mapNotice"></div>
         </div>
 
@@ -154,15 +157,18 @@
     </div>
     <div id="grafTip" class="graf-tip hidden"></div>
 
+    <!-- Cidades mostradas: Cuiabá e Várzea Grande, as duas marcadas por padrão -->
+    <div id="cityMenu" class="menu" popover role="menu" aria-label="Cidade"></div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="js/data/stations-data.js?v=9"></script>
-    <script src="js/calc.js?v=9"></script>
-    <script src="js/components/ui.js?v=9"></script>
-    <script src="js/components/map-view.js?v=9"></script>
-    <script src="js/components/bottom-sheet.js?v=9"></script>
-    <script src="js/components/list-view.js?v=9"></script>
-    <script src="js/components/modals.js?v=9"></script>
-    <script src="js/components/nav.js?v=9"></script>
-    <script src="js/app.js?v=9"></script>
+    <script src="js/data/stations-data.js?v=11"></script>
+    <script src="js/calc.js?v=11"></script>
+    <script src="js/components/ui.js?v=11"></script>
+    <script src="js/components/map-view.js?v=11"></script>
+    <script src="js/components/bottom-sheet.js?v=11"></script>
+    <script src="js/components/list-view.js?v=11"></script>
+    <script src="js/components/modals.js?v=11"></script>
+    <script src="js/components/nav.js?v=11"></script>
+    <script src="js/app.js?v=11"></script>
   </body>
 </html>
