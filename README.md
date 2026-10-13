@@ -43,7 +43,7 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 
 ### Frontend
 - **HTML5 Semântico:** Estrutura acessível com metatags responsivas.
-- **CSS Customizado (`css/app.css`):** Design system com paleta oficial verde floresta (`#0e7048`) e dourado (`#f5b723`), pins Leaflet, animações e layout fluido.
+- **CSS Customizado (`public/css/app.css`):** Design system com paleta oficial verde floresta (`#0e7048`) e dourado (`#f5b723`), pins Leaflet, animações e layout fluido.
 - **Tailwind CSS (CDN):** Utilitários de layout e tipografia.
 - **Leaflet (1.9.4 CDN):** Renderização de mapas e camadas interativas.
 - **Lucide Icons (CDN):** Ícones vetoriais em substituição a emojis e caracteres Unicode.
@@ -59,31 +59,34 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 
 ```
 combustivel-certo/
-├── assets/                  # Identidade visual (logo-icon.svg, favicon.svg, logo.svg)
-├── css/
-│   └── app.css              # Design system, temas, mapa, bottom sheet e navegação
+├── api/                     # Funções serverless do Vercel (anp, precos, precos/status)
 ├── data/
 │   └── precos.json          # Histórico consolidado das coletas da ANP em Cuiabá
-├── js/
-│   ├── app.js               # Orquestrador central e gerenciador de estado da aplicação
-│   ├── components/
-│   │   ├── bottom-sheet.js  # Drawer inferior expansível do mapa com paginação
-│   │   ├── list-view.js     # Tela de lista mobile com menor preço em destaque
-│   │   ├── map-view.js      # Integração com Leaflet, pins e geolocalização
-│   │   ├── modals.js        # Modal do ranking Top 10 e tela de dados ANP
-│   │   └── nav.js           # Barra de navegação inferior fixa (Lista, Mapa, Dados)
-│   └── data/
-│       └── stations-data.js # Base geoespacial local de postos de Cuiabá (fallback)
 ├── lib/
 │   ├── anp-precos.js        # Módulo de scraping, validação, persistência e consulta
+│   ├── api-service.js       # Serviço compartilhado pelas funções de api/
 │   └── xlsx.js              # Leitor nativo de arquivos .xlsx sem dependências
+├── public/                  # Site (única cópia): servido pelo server.js e publicado pelo Vercel
+│   ├── assets/              # Identidade visual (logo-icon.svg, favicon.svg, logo.svg)
+│   ├── css/
+│   │   └── app.css          # Design system, temas, mapa, bottom sheet e navegação
+│   ├── js/
+│   │   ├── app.js           # Orquestrador central e gerenciador de estado da aplicação
+│   │   ├── components/
+│   │   │   ├── bottom-sheet.js  # Drawer inferior expansível do mapa com paginação
+│   │   │   ├── list-view.js     # Tela de lista mobile com menor preço em destaque
+│   │   │   ├── map-view.js      # Integração com Leaflet, pins e geolocalização
+│   │   │   ├── modals.js        # Modal do ranking Top 10 e tela de dados ANP
+│   │   │   └── nav.js           # Barra de navegação inferior fixa (Lista, Mapa, Dados)
+│   │   └── data/
+│   │       └── stations-data.js # Base geoespacial local de postos de Cuiabá (fallback)
+│   └── index.html           # Aplicação web principal de página única
 ├── scripts/
 │   └── atualizar-precos.js  # CLI para atualizar preços e consultar status da base
 ├── test/
 │   ├── anp-ao-vivo.test.js  # Testes de integração ao vivo contra o portal da ANP
 │   ├── helpers.js           # Gerador de planilhas e mocks para testes
 │   └── precos.test.js       # Suíte com 14 testes automatizados locais
-├── index.html               # Aplicação web principal de página única
 ├── package.json             # Metadados do projeto e scripts npm
 ├── server.js                # Servidor HTTP nativo e handler compatível com Vercel
 ├── vercel.json              # Configuração de rotas e publicação no Vercel

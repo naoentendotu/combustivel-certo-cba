@@ -6,6 +6,7 @@
 
   // Chaves de armazenamento
   const PREFS_KEY = 'cc_prefs_v1';
+  const GPS_HINT_KEY = 'cc_gps_hint_v1';
   const ANP_KEY = 'cc_anp_v1';
   const ANP_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const ANP_URL = location.protocol === 'file:' ? null : 'api/anp';
@@ -37,13 +38,14 @@
     pricesWeekId: '',
     fuel: FUELS.some(f => f.id === prefs.fuel) ? prefs.fuel : 'gasolina',
     vehicle: typeof prefs.vehicle === 'number' && typeof VEHICLES !== 'undefined' && VEHICLES[prefs.vehicle] ? prefs.vehicle : 1,
+    hideNoPrice: prefs.hideNoPrice ?? true,
     sort: prefs.sort || 'price', // 'price' | 'dist' | 'both'
     userPos: null,
     activeId: null,
     currentView: 'map' // O MAPA É A PÁGINA INICIAL!
   };
 
-  const savePrefs = () => store.set(PREFS_KEY, { fuel: state.fuel, vehicle: state.vehicle, sort: state.sort });
+  const savePrefs = () => store.set(PREFS_KEY, { fuel: state.fuel, vehicle: state.vehicle, sort: state.sort, hideNoPrice: state.hideNoPrice });
 
   function setVehicle(idx) {
     const i = parseInt(idx, 10);
@@ -166,6 +168,8 @@
       ranked = [...rows].sort(byPrice);
     }
 
+    if (state.hideNoPrice) ranked = ranked.filter(r => r.price != null);
+
     return { rows: ranked, best, fuel, vehicle, vehicleIdx: state.vehicle };
   }
 
@@ -184,6 +188,7 @@
         best: best,
         rows,
         sort: state.sort,
+        hideNoPrice: state.hideNoPrice,
         fuel,
         vehicle,
         vehicleIdx,
@@ -278,8 +283,10 @@
     }
     const gpsBtn = document.getElementById('floatingGpsBtn');
     if (gpsBtn) {
+      gpsBtn.classList.remove('is-hint');
       gpsBtn.classList.add('is-loading');
     }
+    store.set(GPS_HINT_KEY, true);
 
     // Se já conhecemos a posição do usuário, faz o zoom imediato sem esperar a rede
     if (shouldZoom && state.userPos) {
@@ -346,6 +353,11 @@
         savePrefs();
         render();
       },
+      onHideNoPriceChange: hide => {
+        state.hideNoPrice = hide;
+        savePrefs();
+        render();
+      },
       onRequestGps: () => {
         requestLocation(false);
       },
@@ -395,6 +407,10 @@
     document.getElementById('floatingGpsBtn')?.addEventListener('click', () => {
       requestLocation(true);
     });
+    // Na primeira visita, o botão pisca até a pessoa pedir a localização
+    if (!store.get(GPS_HINT_KEY)) {
+      document.getElementById('floatingGpsBtn')?.classList.add('is-hint');
+    }
 
     // 8. Botão 10 Mais Baratos no cabeçalho/mapa
     document.getElementById('top10QuickBtn')?.addEventListener('click', () => {

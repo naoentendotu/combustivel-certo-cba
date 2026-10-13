@@ -35,6 +35,8 @@ const BottomSheet = (() => {
   // Callbacks
   let onSelectStationCb = null;
   let onSortChangeCb = null;
+  let hideNoPrice = true;
+  let onHideNoPriceChangeCb = null;
   let onRequestGpsCb = null;
   let onVehicleChangeCb = null;
 
@@ -48,6 +50,7 @@ const BottomSheet = (() => {
     backdropId,
     onSelectStation,
     onSortChange,
+    onHideNoPriceChange,
     onRequestGps,
     onVehicleChange,
   }) {
@@ -55,6 +58,7 @@ const BottomSheet = (() => {
     backdrop = document.getElementById(backdropId);
     onSelectStationCb = onSelectStation;
     onSortChangeCb = onSortChange;
+    onHideNoPriceChangeCb = onHideNoPriceChange;
     onRequestGpsCb = onRequestGps;
     onVehicleChangeCb = onVehicleChange;
 
@@ -132,6 +136,7 @@ const BottomSheet = (() => {
     best,
     rows,
     sort,
+    hideNoPrice: hide,
     fuel,
     vehicle,
     vehicleIdx,
@@ -144,6 +149,10 @@ const BottomSheet = (() => {
     if (active) activeStation = active;
     if (best) bestStation = best;
     if (rows) stationRows = rows;
+    if (hide !== undefined && hide !== hideNoPrice) {
+      hideNoPrice = hide;
+      currentPage = 1;
+    }
     if (sort && sort !== currentSort) {
       currentSort = sort;
       currentPage = 1;
@@ -520,11 +529,11 @@ const BottomSheet = (() => {
         </div>
 
         <!-- Seletor de Ordenação: Menor Preço & Mais Perto (Ambos selecionáveis!) -->
-        <div class="flex items-center justify-between gap-2 py-2 px-4 sm:px-5 border-t border-slate-100">
+        <div class="flex flex-wrap items-center justify-between gap-2 py-2 px-4 sm:px-5 border-t border-slate-100">
           <div class="flex items-center gap-1.5 min-w-0">
-            <span class="text-xs font-bold text-slate-600">Ordenar por:</span>
+            <span class="text-xs font-bold text-slate-600">Filtros:</span>
           </div>
-          <div class="flex items-center gap-1.5 shrink-0">
+          <div class="flex flex-wrap items-center justify-end gap-1.5">
             <button
               id="sortPriceBtn"
               type="button"
@@ -543,6 +552,17 @@ const BottomSheet = (() => {
             >
               <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
               <span>Mais perto</span>
+            </button>
+
+            <button
+              id="hideNoPriceBtn"
+              type="button"
+              class="sort-pill-btn ${hideNoPrice ? "is-active" : ""}"
+              aria-pressed="${hideNoPrice}"
+              title="Ocultar postos sem preço"
+            >
+              <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
+              <span>Ocultar sem preço</span>
             </button>
           </div>
         </div>
@@ -865,6 +885,14 @@ const BottomSheet = (() => {
     }
 
     // Botões de ordenação (suporta selecionar ambos!)
+    container.querySelector("#hideNoPriceBtn")?.addEventListener("click", () => {
+      hideNoPrice = !hideNoPrice;
+      currentPage = 1;
+      if (typeof onHideNoPriceChangeCb === "function")
+        onHideNoPriceChangeCb(hideNoPrice);
+      render();
+    });
+
     container
       .querySelector("#sortPriceBtn")
       ?.addEventListener("click", () => toggleFilter("price"));

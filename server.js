@@ -123,11 +123,8 @@ function criarServidor({
     };
     const reqPath = url.pathname === "/" ? "/index.html" : url.pathname;
     const safePath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, "");
-    let filePath = path.join(__dirname, "public", safePath);
+    const filePath = path.join(__dirname, "public", safePath);
     try {
-      if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-        filePath = path.join(__dirname, safePath);
-      }
       if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
         const ext = path.extname(filePath).toLowerCase();
         res.writeHead(200, {
