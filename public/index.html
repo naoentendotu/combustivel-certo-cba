@@ -8,7 +8,8 @@
     <meta name="theme-color" content="#ffffff" />
 
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
-    <link rel="apple-touch-icon" href="assets/logo-icon.svg" />
+    <link rel="alternate icon" type="image/png" href="assets/favicon.png" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,7 +20,10 @@
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="css/app.css?v=5" />
+    <!-- Web Awesome: só o tema e os componentes usados (seletor, barra de faixa e campos) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/styles/themes/default.css" />
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/webawesome.loader.js"></script>
+    <link rel="stylesheet" href="css/app.css?v=6" />
   </head>
 
   <body>
@@ -28,13 +32,14 @@
       <section id="viewMap" class="view-panel" aria-label="Mapa de postos">
         <div class="map-top">
           <div class="map-bar">
-            <img src="assets/logo-icon.svg" alt="Combustível Certo" />
+            <img src="assets/logo-icon.png" alt="Combustível Certo" />
             <div id="mapFloatingFuels"></div>
           </div>
           <button id="top10QuickBtn" type="button" class="map-chip">
             <i data-lucide="trending-up"></i>
             <span>10 mais baratos</span>
           </button>
+          <div id="mapNotice"></div>
         </div>
 
         <div id="map" class="map-canvas"></div>
@@ -59,7 +64,7 @@
       <section id="viewList" class="view-panel is-hidden scroll-thin" style="overflow-y: auto" aria-label="Lista de postos"></section>
 
       <nav class="bottom-nav" aria-label="Seções">
-        <img class="nav-brand" src="assets/logo-icon.svg" alt="Combustível Certo" />
+        <img class="nav-brand" src="assets/logo-icon.png" alt="Combustível Certo" />
         <button type="button" data-nav-tab="map" class="nav-tab-btn is-active">
           <i data-lucide="map"></i>
           <span>Mapa</span>
@@ -126,16 +131,38 @@
         </div>
       </div>
     </div>
+    <!-- Meu carro: veículo com tanque personalizado -->
+    <div id="modalCarro" class="modal hidden">
+      <form id="carroForm" class="modal-box" role="dialog" aria-modal="true" aria-labelledby="carroTitle" style="max-width: 420px">
+        <header class="modal-head">
+          <div>
+            <h2 id="carroTitle">Meu carro</h2>
+            <p>Usado para calcular o custo do tanque.</p>
+          </div>
+          <button id="carroClose" type="button" class="btn-icon" aria-label="Fechar"><i data-lucide="x"></i></button>
+        </header>
+
+        <div class="modal-body">
+          <wa-input id="carroNome" label="Nome" maxlength="40" required autocomplete="off" placeholder="Ex.: Meu Onix"></wa-input>
+          <wa-input id="carroTanque" label="Tanque (litros)" type="number" min="1" max="200" step="1" required inputmode="numeric" placeholder="Ex.: 44"></wa-input>
+          <div class="summary-actions">
+            <button type="submit" class="btn btn-primary">Salvar</button>
+            <button id="carroRemover" type="button" class="btn btn-quiet">Remover</button>
+          </div>
+        </div>
+      </form>
+    </div>
     <div id="grafTip" class="graf-tip hidden"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="js/data/stations-data.js?v=5"></script>
-    <script src="js/components/ui.js?v=5"></script>
-    <script src="js/components/map-view.js?v=5"></script>
-    <script src="js/components/bottom-sheet.js?v=5"></script>
-    <script src="js/components/list-view.js?v=5"></script>
-    <script src="js/components/modals.js?v=5"></script>
-    <script src="js/components/nav.js?v=5"></script>
-    <script src="js/app.js?v=5"></script>
+    <script src="js/data/stations-data.js?v=6"></script>
+    <script src="js/calc.js?v=6"></script>
+    <script src="js/components/ui.js?v=6"></script>
+    <script src="js/components/map-view.js?v=6"></script>
+    <script src="js/components/bottom-sheet.js?v=6"></script>
+    <script src="js/components/list-view.js?v=6"></script>
+    <script src="js/components/modals.js?v=6"></script>
+    <script src="js/components/nav.js?v=6"></script>
+    <script src="js/app.js?v=6"></script>
   </body>
 </html>

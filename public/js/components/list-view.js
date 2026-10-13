@@ -11,6 +11,7 @@ const ListView = (() => {
   let onShowAllCallback = null;
   let onRetryCallback = null;
   let onShowHistoryCallback = null;
+  let onShareCallback = null;
 
   let currentPage = 1;
   const PAGE_SIZE = 10;
@@ -29,6 +30,7 @@ const ListView = (() => {
     onShowAll,
     onRetry,
     onShowHistory,
+    onShare,
   }) {
     container = document.getElementById(containerId);
     onSelectStationCallback = onSelectStation;
@@ -38,6 +40,7 @@ const ListView = (() => {
     onShowAllCallback = onShowAll;
     onRetryCallback = onRetry;
     onShowHistoryCallback = onShowHistory;
+    onShareCallback = onShare;
   }
 
   const cents = (n) => Math.round(n * 100) / 100;
@@ -105,7 +108,6 @@ const ListView = (() => {
     const hasRange = opts.lo != null && opts.hi > opts.lo;
     const min = filters.min ?? opts.lo;
     const max = filters.max ?? opts.hi;
-    const pct = (v) => (hasRange ? ((v - opts.lo) / (opts.hi - opts.lo)) * 100 : 0);
 
     return `
       <div class="list-tools">
@@ -123,10 +125,9 @@ const ListView = (() => {
                       <div class="filter-label">${UI.icon("banknote")}<span>Preço por litro</span>
                         <output id="listRangeOut" class="range2-out">${brl(min)} a ${brl(max)}</output>
                       </div>
-                      <div class="range2" id="listRange" style="--a:${pct(min)}%;--b:${pct(max)}%">
-                        <input type="range" id="listMin" min="${opts.lo}" max="${opts.hi}" step="0.01" value="${min}" aria-label="Preço mínimo" />
-                        <input type="range" id="listMax" min="${opts.lo}" max="${opts.hi}" step="0.01" value="${max}" aria-label="Preço máximo" />
-                      </div>
+                      <wa-slider id="listRange" range min="${opts.lo}" max="${opts.hi}" step="0.01" min-value="${min}" max-value="${max}">
+                        <span slot="label" class="sr-only">Faixa de preço por litro</span>
+                      </wa-slider>
                     </div>`
                   : ""
               }
@@ -149,11 +150,10 @@ const ListView = (() => {
                 opts.bairros.length > 1
                   ? `<div class="filter">
                       <div class="filter-label">${UI.icon("map-pin")}<span>Bairro</span></div>
-                      <div class="search-field">
-                        ${UI.icon("search")}
-                        <input id="listBairro" type="search" list="listBairros" autocomplete="off" placeholder="Todos os bairros" value="${UI.esc(filters.bairro)}" aria-label="Bairro" />
-                        <datalist id="listBairros">${opts.bairros.map((b) => `<option value="${UI.esc(b)}"></option>`).join("")}</datalist>
-                      </div>
+                      <wa-select id="listBairro" size="s" with-clear placeholder="Todos os bairros" value="${filters.bairro ? opts.bairros.indexOf(filters.bairro) : ""}">
+                        <span slot="label" class="sr-only">Bairro</span>
+                        ${opts.bairros.map((b, i) => `<wa-option value="${i}">${UI.esc(b)}</wa-option>`).join("")}
+                      </wa-select>
                     </div>`
                   : ""
               }
@@ -174,15 +174,16 @@ const ListView = (() => {
       .join(" · ");
 
     return `
-      <section class="totem" aria-label="Menor preço">
+      <section class="totem wa-dark" aria-label="Menor preço">
         <div class="eyebrow">Menor preço de ${UI.esc(fuel.label.toLowerCase())} ${filtered ? "com estes filtros" : "em Cuiabá"}</div>
+        ${UI.flexLine(best, fuel.id, brl)}
         <div class="totem-price">
           <span class="price price-xl">${brl(best.price)}</span>
           <small>por litro</small>
         </div>
         ${diff > 0.004 ? `<p class="totem-diff">${brl(diff)} abaixo da média dos ${prices.length} postos com preço</p>` : ""}
         <h2 class="totem-name">${UI.esc(best.name)}</h2>
-        <p class="totem-addr">${UI.esc(where)}</p>
+        ${UI.addrCopy(best, where, "totem-addr")}
         <p>${UI.freshness(best, { long: true })}</p>
         ${UI.tank(best, vehicle.tank, brl)}
         ${UI.vehicleLine("listVehicleSel", vehicles, vehicleIdx)}
@@ -190,12 +191,13 @@ const ListView = (() => {
           <a class="btn btn-primary" href="${UI.routeUrl(best, userPos)}" target="_blank" rel="noopener">
             ${UI.icon("navigation")}<span>Traçar rota</span>
           </a>
-          <button type="button" class="btn btn-quiet" data-station-id="${UI.esc(best.id)}" id="listBestMapBtn">
-            ${UI.icon("map")}<span>Ver no mapa</span>
+          <button type="button" class="btn btn-quiet btn-square" data-station-id="${UI.esc(best.id)}" id="listBestMapBtn" aria-label="Ver no mapa" title="Ver no mapa">
+            ${UI.icon("map")}
           </button>
           <button type="button" class="btn btn-quiet btn-square" id="listBestHistBtn" aria-label="Histórico de preço" title="Histórico de preço">
             ${UI.icon("chart-line")}
           </button>
+          <button type="button" class="btn btn-quiet btn-square" id="listBestShareBtn" aria-label="Compartilhar este preço" title="Compartilhar este preço">${UI.icon("share-2")}</button>
         </div>
       </section>
     `;
@@ -295,7 +297,7 @@ const ListView = (() => {
         <header class="page-head">
           <div class="page-inner">
             <div class="brandline">
-              <img src="assets/logo-icon.svg" alt="" />
+              <img src="assets/logo-icon.png" alt="" />
               <span class="wordmark">Combustível <b>Certo</b></span>
               <span class="place">Cuiabá, MT</span>
             </div>
@@ -304,6 +306,7 @@ const ListView = (() => {
         </header>
 
         <div class="page-inner">
+          ${p.notice || ""}
           ${totemHtml(p, best, priced.map((r) => r.price), filtered)}
 
           ${
@@ -346,6 +349,9 @@ const ListView = (() => {
     container.querySelector("#listRetryBtn")?.addEventListener("click", () => {
       if (typeof onRetryCallback === "function") onRetryCallback();
     });
+    container.querySelector("#listBestShareBtn")?.addEventListener("click", () => {
+      if (best && typeof onShareCallback === "function") onShareCallback(best);
+    });
     container.querySelector("#listBestHistBtn")?.addEventListener("click", () => {
       if (best && typeof onShowHistoryCallback === "function") onShowHistoryCallback(best);
     });
@@ -369,10 +375,13 @@ const ListView = (() => {
   }
 
   function bindFilters(opts, brl) {
-    const refresh = (focusSel) => {
+    // part: a peça interna que deve receber o foco (a ponta da barra de preço que a pessoa estava movendo)
+    const refresh = (focusSel, part) => {
       currentPage = 1;
       render();
-      if (focusSel) container.querySelector(focusSel)?.focus();
+      const el = focusSel && container.querySelector(focusSel);
+      // Os componentes Web Awesome só aceitam foco depois de desenhados
+      if (el) Promise.resolve(el.updateComplete).then(() => ((part && el.shadowRoot?.querySelector(`[part~="${part}"]`)) || el).focus());
     };
 
     container.querySelector("#listFiltersBtn")?.addEventListener("click", () => {
@@ -396,52 +405,28 @@ const ListView = (() => {
       });
     });
 
+    // Bairro: o valor da opção é a posição do bairro na lista; vazio = todos
     const bairro = container.querySelector("#listBairro");
-    bairro?.addEventListener("focus", () => bairro.select());
     const pickBairro = () => {
-      const typed = bairro.value.trim().toLowerCase();
-      const match = typed ? opts.bairros.find((b) => b.toLowerCase() === typed) : "";
-      if (match === undefined || match === filters.bairro) return;
-      filters.bairro = match;
-      refresh();
+      const picked = opts.bairros[bairro.value] || "";
+      if (picked === filters.bairro) return;
+      filters.bairro = picked;
+      refresh("#listBairro");
     };
-    // Enquanto a pessoa digita, só reage à escolha na lista de sugestões ou ao campo limpo
-    bairro?.addEventListener("input", (e) => {
-      if (!bairro.value || !e.inputType || e.inputType === "insertReplacementText") pickBairro();
-    });
-    bairro?.addEventListener("change", () => {
-      pickBairro();
-      bairro.value = filters.bairro;
-    });
+    bairro?.addEventListener("change", pickBairro);
+    bairro?.addEventListener("wa-clear", pickBairro);
 
     // Faixa de preço: arrastar só atualiza o rótulo; a lista muda ao soltar
     const range = container.querySelector("#listRange");
-    const minEl = container.querySelector("#listMin");
-    const maxEl = container.querySelector("#listMax");
     const out = container.querySelector("#listRangeOut");
-    if (!range || !minEl || !maxEl) return;
-    const span = opts.hi - opts.lo;
-    const sync = (moved) => {
-      let a = parseFloat(minEl.value);
-      let b = parseFloat(maxEl.value);
-      if (a > b) {
-        if (moved === minEl) minEl.value = a = b;
-        else maxEl.value = b = a;
-      }
-      range.style.setProperty("--a", ((a - opts.lo) / span) * 100 + "%");
-      range.style.setProperty("--b", ((b - opts.lo) / span) * 100 + "%");
-      if (out) out.textContent = `${brl(a)} a ${brl(b)}`;
-      return [a, b];
-    };
-    for (const el of [minEl, maxEl]) {
-      el.addEventListener("input", () => sync(el));
-      el.addEventListener("change", () => {
-        const [a, b] = sync(el);
-        filters.min = a > opts.lo ? cents(a) : null;
-        filters.max = b < opts.hi ? cents(b) : null;
-        refresh("#" + el.id);
-      });
-    }
+    range?.addEventListener("input", () => {
+      if (out) out.textContent = `${brl(range.minValue)} a ${brl(range.maxValue)}`;
+    });
+    range?.addEventListener("change", () => {
+      filters.min = range.minValue > opts.lo ? cents(range.minValue) : null;
+      filters.max = range.maxValue < opts.hi ? cents(range.maxValue) : null;
+      refresh("#listRange", range.shadowRoot?.activeElement?.getAttribute("part")?.includes("thumb-max") ? "thumb-max" : "thumb-min");
+    });
   }
 
   return { init, render };
