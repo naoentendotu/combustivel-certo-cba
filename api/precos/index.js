@@ -1,5 +1,5 @@
 "use strict";
-const { defaultApp } = require("../../server");
+const { getPrecos } = require("../../lib/api-service");
 
 function extrairQuery(req) {
   if (req.query && typeof req.query === "object" && Object.keys(req.query).length > 0) {
@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
 
   try {
     const query = extrairQuery(req);
-    const data = await defaultApp.getPrecos(query);
+    const data = getPrecos(query);
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     res.statusCode = 200;

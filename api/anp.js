@@ -1,5 +1,5 @@
 "use strict";
-const { defaultApp } = require("../server");
+const { getCadastro } = require("../lib/api-service");
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -17,7 +17,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const data = await defaultApp.getCadastro();
+    const data = await getCadastro();
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     res.statusCode = 200;
