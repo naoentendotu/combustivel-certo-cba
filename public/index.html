@@ -2,621 +2,206 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Combustível Certo · Cuiabá-MT</title>
-    <meta
-      name="description"
-      content="O combustível mais barato, perto de você em Cuiabá-MT."
-    />
+    <meta name="description" content="Preços de gasolina, etanol e diesel nos postos de Cuiabá-MT, pela pesquisa semanal da ANP." />
+    <meta name="theme-color" content="#ffffff" />
 
-    <!-- Favicon Oficial com a Nova Logo do Combustível Certo -->
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
     <link rel="apple-touch-icon" href="assets/logo-icon.svg" />
 
-    <!-- Tipografia Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap"
       rel="stylesheet"
     />
 
-    <!-- Leaflet & Tailwind -->
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      crossorigin=""
-    />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: { sans: ['Outfit', 'system-ui', 'sans-serif'] },
-            colors: {
-              brandGreen: '#0e7048',
-              brandDark: '#091e26'
-            }
-          }
-        }
-      };
-    </script>
-
-    <!-- Lucide Icons -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Estilos Customizados Componentizados -->
-    <link rel="stylesheet" href="css/app.css?v=3" />
+    <link rel="stylesheet" href="css/app.css?v=4" />
   </head>
 
-  <body
-    class="bg-slate-900 text-slate-800 antialiased selection:bg-emerald-100 selection:text-emerald-900"
-  >
+  <body>
     <div class="app-root">
-      <!-- ===================================================================
-           VISÃO 1: MAPA (PÁGINA INICIAL POR PADRÃO - Mobile — mapa)
-           =================================================================== -->
-      <section id="viewMap" class="view-panel">
-        <!-- Controles Flutuantes Superiores: Logo, Combustíveis e Botão 10 Mais Baratos -->
-        <div
-          class="absolute top-4 left-4 sm:top-5 sm:left-5 z-[500] flex flex-col items-start gap-2.5 pointer-events-none"
-        >
-          <!-- Linha 0: Logo Oficial (Apenas o Ícone) -->
-          <div
-            class="bg-[#091e26]/95 backdrop-blur-md p-1.5 rounded-2xl shadow-lg border border-slate-700/60 pointer-events-auto flex items-center justify-center hover:scale-105 transition"
-            title="Combustível Certo"
-          >
-            <img
-              src="assets/logo-icon.svg"
-              class="w-8 h-8 rounded-xl shadow-xs"
-              alt="Combustível Certo"
-            />
+      <!-- Mapa (tela inicial) -->
+      <section id="viewMap" class="view-panel" aria-label="Mapa de postos">
+        <div class="map-top">
+          <div class="map-bar">
+            <img src="assets/logo-icon.svg" alt="Combustível Certo" />
+            <div id="mapFloatingFuels"></div>
           </div>
-
-          <!-- Linha 1: Seletor de Combustível (Gasolina, Etanol, Diesel, GNV) -->
-          <div
-            id="mapFloatingFuels"
-            class="flex items-center gap-1 p-1 rounded-full bg-white/95 backdrop-blur-md shadow-md border border-slate-200/90 pointer-events-auto max-w-[calc(100vw-32px)] sm:max-w-md overflow-x-auto scroll-none"
-          >
-            <!-- Abas injetadas dinamicamente via JS -->
-          </div>
-
-          <!-- Linha 2 (Abaixo das opções e na Esquerda): Botão 10 Mais Baratos -->
-          <button
-            id="top10QuickBtn"
-            type="button"
-            title="Ver os 10 mais baratos"
-            class="h-8 px-3 rounded-full bg-amber-400 hover:bg-amber-500 active:scale-95 text-emerald-950 font-black text-xs shadow-md border border-amber-300 flex items-center gap-1.5 transition cursor-pointer pointer-events-auto"
-          >
-            <i data-lucide="trophy" class="w-4 h-4 text-emerald-950"></i>
+          <button id="top10QuickBtn" type="button" class="map-chip">
+            <i data-lucide="trending-up"></i>
             <span>10 mais baratos</span>
           </button>
         </div>
 
-        <!-- Canvas do Mapa Leaflet -->
         <div id="map" class="map-canvas"></div>
 
-        <!-- Botão Flutuante de GPS (Minha Localização / Zoom) -->
+        <div id="mapStatus" class="map-status hidden" role="status"></div>
+
         <button
           id="floatingGpsBtn"
           type="button"
-          aria-label="Dar zoom na localização atual"
-          title="Minha localização atual"
           class="floating-gps-btn"
+          aria-label="Ir para a minha localização"
+          title="Minha localização"
         >
-          <i data-lucide="locate-fixed" class="w-6 h-6"></i>
+          <i data-lucide="locate-fixed"></i>
         </button>
 
-        <!-- Backdrop translúcido do Bottom Sheet quando expandido -->
         <div id="sheetBackdrop" class="sheet-backdrop is-hidden"></div>
-
-        <!-- Drawer Flutuante (Bottom Sheet Expansível com Menor Preço e Lista Completa) -->
-        <div id="bottomSheet" class="bottom-sheet is-hidden">
-          <!-- Detalhes e lista de postos injetados via BottomSheet -->
-        </div>
+        <div id="bottomSheet" class="bottom-sheet is-hidden"></div>
       </section>
 
-      <!-- ===================================================================
-           VISÃO 2: LISTA / INÍCIO (Mobile — início)
-           =================================================================== -->
-      <section
-        id="viewList"
-        class="view-panel is-hidden overflow-y-auto scroll-thin"
-      >
-        <!-- Conteúdo injetado via ListView.render() -->
-      </section>
+      <!-- Lista -->
+      <section id="viewList" class="view-panel is-hidden scroll-thin" style="overflow-y: auto" aria-label="Lista de postos"></section>
 
-      <!-- ===================================================================
-           VISÃO 3: DADOS OFICIAIS ANP (Nativa · Sem esconder barra inferior)
-           =================================================================== -->
-      <section
-        id="viewDados"
-        class="view-panel is-hidden flex flex-col bg-slate-100 overflow-hidden"
-      >
-        <!-- Topo da Visão de Dados -->
-        <header
-          class="px-4 sm:px-6 py-3.5 bg-gradient-to-r from-emerald-950 via-emerald-900 to-slate-900 text-white shrink-0 border-b border-amber-400/30"
-        >
-          <div
-            class="max-w-4xl mx-auto flex items-center justify-between gap-3"
-          >
-            <div class="min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <img
-                  src="assets/logo-icon.svg"
-                  class="w-7 h-7 rounded-xl shadow-xs"
-                  alt="Logo Combustível Certo"
-                />
-                <h1
-                  class="text-base sm:text-lg font-black tracking-tight text-white truncate"
-                >
-                  Preços Oficiais ANP
-                </h1>
-                <span
-                  class="rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] font-extrabold px-2 py-0.5 uppercase tracking-wide"
-                  >Cuiabá · MT</span
-                >
-              </div>
-              <p
-                id="tabMeta"
-                class="mt-0.5 text-xs text-slate-300 font-medium truncate"
-              >
-                Pesquisa oficial semanal da ANP em postos de Cuiabá
-              </p>
+      <!-- Pesquisa ANP (todos os registros) -->
+      <section id="viewDados" class="view-panel is-hidden" style="display: flex; flex-direction: column" aria-label="Pesquisa de preços da ANP">
+        <header class="page-head">
+          <div class="page-inner dados-wide dados-head">
+            <div>
+              <h1 class="page-title">Pesquisa de preços da ANP</h1>
+              <p id="tabMeta" class="page-sub">Registros da pesquisa semanal em Cuiabá</p>
             </div>
-            <button
-              id="tabReloadBtn"
-              type="button"
-              title="Atualizar dados"
-              class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition cursor-pointer shrink-0"
-            >
-              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            <button id="tabReloadBtn" type="button" class="btn-icon" aria-label="Atualizar" title="Atualizar">
+              <i data-lucide="refresh-cw"></i>
             </button>
           </div>
         </header>
 
-        <!-- Filtros Inteligentes (não espremem em telas menores) -->
-        <div
-          class="px-4 sm:px-6 py-3 bg-white border-b border-slate-200/90 shrink-0"
-        >
-          <div class="max-w-4xl mx-auto space-y-2">
-            <p
-              id="tabAviso"
-              class="hidden rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 font-medium"
-            ></p>
-
-            <!-- Linha 1 de Filtros: Combustível e Bairro (principais) -->
-            <div class="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <label
-                  for="tabCombustivel"
-                  class="block font-bold text-[11px] text-slate-500 mb-1"
-                  >Combustível</label
-                >
-                <select
-                  id="tabCombustivel"
-                  class="w-full h-9 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
-                ></select>
-              </div>
-              <div>
-                <label
-                  for="tabBairro"
-                  class="block font-bold text-[11px] text-slate-500 mb-1"
-                  >Bairro</label
-                >
-                <select
-                  id="tabBairro"
-                  class="w-full h-9 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
-                ></select>
-              </div>
+        <div class="dados-filters">
+          <div class="page-inner dados-wide">
+            <div class="dados-grid">
+              <label class="field"><span>Combustível</span><select id="tabCombustivel"></select></label>
+              <label class="field"><span>Bairro</span><select id="tabBairro"></select></label>
             </div>
 
-            <!-- Linha de Controles: Mais Filtros / Limpar / Contador -->
-            <div class="flex items-center justify-between gap-2 pt-0.5 text-xs">
-              <div class="flex items-center gap-2">
-                <button
-                  id="tabToggleFiltrosBtn"
-                  type="button"
-                  class="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-[11px] flex items-center gap-1.5 transition cursor-pointer active:scale-95"
-                >
-                  <i
-                    data-lucide="sliders-horizontal"
-                    class="w-3.5 h-3.5 text-emerald-700"
-                  ></i>
-                  <span>Mais filtros</span>
-                  <i
-                    data-lucide="chevron-down"
-                    id="tabToggleFiltrosChevron"
-                    class="w-3 h-3 text-slate-400 transition-transform"
-                  ></i>
-                </button>
-
-                <button
-                  id="tabLimpar"
-                  type="button"
-                  class="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer"
-                >
-                  Limpar
-                </button>
-              </div>
-
-              <span
-                id="tabTotal"
-                class="font-extrabold text-slate-600 text-[11px] whitespace-nowrap"
-                >Carregando...</span
-              >
-            </div>
-
-            <!-- Filtros Avançados Colapsáveis -->
-            <div
-              id="tabFiltrosAvancados"
-              class="hidden pt-2 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs"
-            >
-              <div>
-                <label
-                  for="tabBandeira"
-                  class="block font-semibold text-[10px] uppercase text-slate-400 mb-0.5"
-                  >Bandeira</label
-                >
-                <select
-                  id="tabBandeira"
-                  class="w-full h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700"
-                ></select>
-              </div>
-              <div>
-                <label
-                  for="tabSemanas"
-                  class="block font-semibold text-[10px] uppercase text-slate-400 mb-0.5"
-                  >Período</label
-                >
-                <select
-                  id="tabSemanas"
-                  class="w-full h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700"
-                >
+            <div id="tabFiltrosAvancados" class="dados-grid more hidden">
+              <label class="field"><span>Bandeira</span><select id="tabBandeira"></select></label>
+              <label class="field">
+                <span>Período</span>
+                <select id="tabSemanas">
                   <option value="1">Semana mais recente</option>
                   <option value="4">Últimas 4 semanas</option>
                   <option value="todas">Todo o histórico</option>
                 </select>
-              </div>
-              <div>
-                <label
-                  for="tabMin"
-                  class="block font-semibold text-[10px] uppercase text-slate-400 mb-0.5"
-                  >Preço mínimo</label
-                >
-                <input
-                  id="tabMin"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="R$ 0,00"
-                  class="w-full h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700"
-                />
-              </div>
-              <div>
-                <label
-                  for="tabMax"
-                  class="block font-semibold text-[10px] uppercase text-slate-400 mb-0.5"
-                  >Preço máximo</label
-                >
-                <input
-                  id="tabMax"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="R$ 9,99"
-                  class="w-full h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700"
-                />
-              </div>
-              <div>
-                <label
-                  for="tabDe"
-                  class="block font-semibold text-[10px] uppercase text-slate-400 mb-0.5"
-                  >A partir de</label
-                >
-                <input
-                  id="tabDe"
-                  type="date"
-                  class="w-full h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700"
-                />
-              </div>
-              <div>
-                <label
-                  for="tabAte"
-                  class="block font-semibold text-[10px] uppercase text-slate-400 mb-0.5"
-                  >Até</label
-                >
-                <input
-                  id="tabAte"
-                  type="date"
-                  class="w-full h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700"
-                />
-              </div>
+              </label>
+              <label class="field"><span>Preço mínimo (R$)</span><input id="tabMin" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" /></label>
+              <label class="field"><span>Preço máximo (R$)</span><input id="tabMax" type="number" min="0" step="0.01" inputmode="decimal" placeholder="9,99" /></label>
+              <label class="field"><span>Coleta a partir de</span><input id="tabDe" type="date" /></label>
+              <label class="field"><span>Coleta até</span><input id="tabAte" type="date" /></label>
+            </div>
+
+            <div class="dados-tools">
+              <button id="tabToggleFiltrosBtn" type="button" class="link" aria-expanded="false" aria-controls="tabFiltrosAvancados">
+                <i data-lucide="sliders-horizontal"></i>
+                <span>Mais filtros</span>
+                <i data-lucide="chevron-down" class="chev"></i>
+              </button>
+              <button id="tabLimpar" type="button" class="link">Limpar</button>
+              <span id="tabTotal" class="count"></span>
             </div>
           </div>
         </div>
 
-        <!-- Conteúdo Rolável (Sem espremer dados no Mobile!) -->
-        <div class="flex-1 min-h-0 overflow-y-auto scroll-thin">
-          <div class="max-w-4xl mx-auto p-4 sm:p-6 space-y-3.5">
-            <p
-              id="tabEstado"
-              class="hidden py-12 text-center text-sm text-slate-500 font-semibold"
-            ></p>
-
-            <!-- Cards no Celular (Espaçosos, legíveis, sem espremer) -->
-            <div
-              id="tabCardsContainer"
-              class="block md:hidden space-y-2.5"
-            ></div>
-
-            <!-- Tabela Completa no Computador / Tablet -->
-            <div
-              id="tabTableWrap"
-              class="hidden md:block bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden"
-            >
-              <table id="tabTable" class="w-full text-sm">
-                <thead
-                  class="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200"
-                >
+        <div class="scroll-thin" style="flex: 1; min-height: 0; overflow-y: auto">
+          <div class="page-inner dados-wide" style="padding-top: 14px; padding-bottom: 20px">
+            <div id="tabEstado" class="state hidden" role="status"></div>
+            <ul id="tabCardsContainer" class="rows sheet-block"></ul>
+            <div id="tabTableWrap" class="table-wrap">
+              <table id="tabTable" class="table">
+                <thead>
                   <tr>
-                    <th class="px-5 py-3 font-bold">Posto & Endereço</th>
-                    <th class="px-3 py-3 font-bold">Bandeira</th>
-                    <th class="px-3 py-3 font-bold">Combustível</th>
-                    <th class="px-4 py-3 font-bold text-right">Preço</th>
-                    <th class="px-4 py-3 font-bold text-right">Coleta</th>
-                    <th class="px-4 py-3 font-bold text-center">Ações</th>
+                    <th>Posto</th>
+                    <th>Bandeira</th>
+                    <th>Combustível</th>
+                    <th class="num">Preço</th>
+                    <th class="num">Coleta</th>
+                    <th><span class="sr-only">Ações</span></th>
                   </tr>
                 </thead>
-                <tbody id="tabCorpo" class="divide-y divide-slate-100"></tbody>
+                <tbody id="tabCorpo"></tbody>
               </table>
             </div>
+            <p id="tabAviso" class="footnote hidden" style="padding-bottom: 0"></p>
           </div>
         </div>
 
-        <!-- Barra de Paginação Unbreakable Fixa no Rodapé da Tela de Dados -->
-        <div
-          id="tabPagination"
-          class="px-4 sm:px-6 py-2.5 bg-white border-t border-slate-200 shrink-0"
-        >
-          <div
-            class="max-w-4xl mx-auto w-full flex items-center justify-between gap-2"
-          >
-            <span
-              id="tabPagInfo"
-              class="text-slate-500 font-semibold text-[11px] whitespace-nowrap shrink-0"
-            ></span>
-            <div class="flex items-center gap-1 shrink-0">
-              <button
-                id="tabPagPrev"
-                type="button"
-                title="Página anterior"
-                class="h-8 px-2 sm:px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-slate-700 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
-              >
-                <i data-lucide="chevron-left" class="w-4 h-4"></i>
-                <span class="hidden sm:inline text-xs">Anterior</span>
-              </button>
-
-              <span
-                id="tabPagPage"
-                class="h-8 px-2 sm:px-2.5 flex items-center justify-center font-extrabold text-slate-800 text-xs bg-slate-100 rounded-lg whitespace-nowrap"
-              ></span>
-
-              <button
-                id="tabPagNext"
-                type="button"
-                title="Próxima página"
-                class="h-8 px-2 sm:px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-slate-700 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
-              >
-                <span class="hidden sm:inline text-xs">Próxima</span>
-                <i data-lucide="chevron-right" class="w-4 h-4"></i>
-              </button>
+        <div id="tabPagination" class="dados-foot">
+          <div class="page-inner dados-wide pager">
+            <span id="tabPagInfo"></span>
+            <div class="pager-nav">
+              <button id="tabPagPrev" type="button" class="btn-icon" aria-label="Página anterior"><i data-lucide="chevron-left"></i></button>
+              <span id="tabPagPage" class="pager-page"></span>
+              <button id="tabPagNext" type="button" class="btn-icon" aria-label="Próxima página"><i data-lucide="chevron-right"></i></button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ===================================================================
-           BARRA DE NAVEGAÇÃO INFERIOR FIXA (Lista · Mapa · Dados)
-           =================================================================== -->
-      <nav class="bottom-nav">
-        <!-- Aba: Lista -->
-        <button data-nav-tab="list" class="nav-tab-btn">
-          <i data-lucide="list" class="w-5 h-5"></i>
-          <span>Lista</span>
-        </button>
-
-        <!-- Aba: Mapa (INICIAL / DEFAULT) -->
-        <button data-nav-tab="map" class="nav-tab-btn is-active">
-          <i data-lucide="map" class="w-5 h-5"></i>
+      <nav class="bottom-nav" aria-label="Seções">
+        <img class="nav-brand" src="assets/logo-icon.svg" alt="Combustível Certo" />
+        <button type="button" data-nav-tab="map" class="nav-tab-btn is-active">
+          <i data-lucide="map"></i>
           <span>Mapa</span>
         </button>
-
-        <!-- Aba: Dados (Tabela Oficial ANP) -->
-        <button data-nav-tab="dados" class="nav-tab-btn">
-          <i data-lucide="table" class="w-5 h-5"></i>
-          <span>Dados</span>
+        <button type="button" data-nav-tab="list" class="nav-tab-btn">
+          <i data-lucide="list"></i>
+          <span>Lista</span>
+        </button>
+        <button type="button" data-nav-tab="dados" class="nav-tab-btn">
+          <i data-lucide="table"></i>
+          <span>Pesquisa</span>
         </button>
       </nav>
     </div>
 
-    <!-- =================================================    <!-- ===================================================================
-         MODAL: 10 MAIS BARATOS (RANKING OFICIAL DA ANP)
-         =================================================================== -->
-    <div
-      id="modalTop10"
-      class="hidden fixed inset-0 z-[1000] bg-slate-950/60 backdrop-blur-sm items-center justify-center p-3 sm:p-5"
-    >
-      <div
-        class="w-full max-w-4xl max-h-[92vh] bg-slate-50 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200"
-      >
-        <!-- Topo Escuro (Padrão Identidade Visual do Site) -->
-        <header
-          class="bg-[#091e26] text-white p-4 sm:p-5 shrink-0 border-b border-slate-800"
-        >
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2.5 min-w-0">
-              <img
-                src="assets/logo-icon.svg"
-                class="w-8 h-8 rounded-xl shadow-md shrink-0"
-                alt="Combustível Certo"
-              />
-              <div class="min-w-0">
-                <div
-                  class="flex items-baseline font-black text-base sm:text-lg tracking-tight leading-none"
-                >
-                  <span class="text-white">Combustível</span>
-                  <span class="text-[#f5b723] ml-1.5">Certo</span>
-                </div>
-                <h2
-                  class="text-xs sm:text-sm font-extrabold text-amber-400 mt-0.5 truncate"
-                >
-                  10 Mais Baratos · Ranking ANP
-                </h2>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2 shrink-0">
-              <span
-                class="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700"
-              >
-                Cuiabá, MT
-              </span>
-              <button
-                id="top10Close"
-                type="button"
-                title="Fechar modal"
-                aria-label="Fechar modal"
-                class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition active:scale-95 cursor-pointer"
-              >
-                <i data-lucide="x" class="w-4 h-4"></i>
-              </button>
-            </div>
+    <!-- 10 mais baratos -->
+    <div id="modalTop10" class="modal hidden">
+      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="top10Title">
+        <header class="modal-head">
+          <div>
+            <h2 id="top10Title">10 mais baratos</h2>
+            <p id="top10Meta"></p>
           </div>
-
-          <!-- Abas de Combustível do Top 10 (Gasolina, Etanol, Diesel S10 - SEM GNV!) -->
-          <div
-            id="top10FuelTabs"
-            class="flex items-center gap-2 mt-3.5 overflow-x-auto pb-0.5 scroll-thin"
-          >
-            <button
-              data-top10-fuel="gasolina"
-              class="top10-fuel-btn px-4 py-1.5 rounded-full font-extrabold text-xs transition cursor-pointer bg-amber-400 text-slate-950 shadow-sm ring-1 ring-amber-300"
-            >
-              Gasolina
-            </button>
-            <button
-              data-top10-fuel="etanol"
-              class="top10-fuel-btn px-4 py-1.5 rounded-full font-bold text-xs transition cursor-pointer bg-slate-800/80 text-slate-200 hover:bg-slate-700/80"
-            >
-              Etanol
-            </button>
-            <button
-              data-top10-fuel="diesel"
-              class="top10-fuel-btn px-4 py-1.5 rounded-full font-bold text-xs transition cursor-pointer bg-slate-800/80 text-slate-200 hover:bg-slate-700/80"
-            >
-              Diesel S10
-            </button>
-          </div>
+          <button id="top10Close" type="button" class="btn-icon" aria-label="Fechar"><i data-lucide="x"></i></button>
         </header>
 
-        <!-- Sub-barra: Período e Link da Tabela -->
-        <div
-          class="px-4 sm:px-5 py-2.5 border-b border-slate-200 bg-white flex flex-wrap items-center justify-between gap-2.5 shrink-0"
-        >
-          <div class="flex items-center gap-2 text-xs">
-            <span class="font-extrabold text-slate-600">Período:</span>
-            <div
-              id="top10PeriodoBtns"
-              class="flex gap-1 p-0.5 rounded-xl bg-slate-100 text-xs font-bold border border-slate-200"
-            >
-              <button
-                data-top10-periodo="4"
-                class="top10-p-btn rounded-lg px-2.5 py-1 bg-white text-[#0e7048] shadow-2xs font-extrabold cursor-pointer transition"
-              >
-                4 semanas
-              </button>
-              <button
-                data-top10-periodo="todas"
-                class="top10-p-btn rounded-lg px-2.5 py-1 text-slate-600 font-bold hover:text-slate-900 cursor-pointer transition"
-              >
-                Histórico completo
-              </button>
-            </div>
+        <div class="modal-controls">
+          <div id="top10FuelTabs" class="seg" role="group" aria-label="Combustível">
+            <button type="button" data-top10-fuel="gasolina" aria-pressed="true">Gasolina</button>
+            <button type="button" data-top10-fuel="etanol" aria-pressed="false">Etanol</button>
+            <button type="button" data-top10-fuel="diesel" aria-pressed="false">Diesel S10</button>
           </div>
-          <button
-            id="top10VerTabelaGeral"
-            type="button"
-            class="text-xs font-bold text-[#0e7048] hover:text-[#095436] hover:underline cursor-pointer flex items-center gap-1"
-          >
-            <span>Ver tabela completa</span>
-          </button>
+          <div id="top10PeriodoBtns" class="seg" role="group" aria-label="Período do gráfico">
+            <button type="button" data-top10-periodo="4" aria-pressed="true">4 semanas</button>
+            <button type="button" data-top10-periodo="todas" aria-pressed="false">Todo o histórico</button>
+          </div>
         </div>
 
-        <!-- Conteúdo com Gráfico e Cards -->
-        <div
-          class="flex-1 min-h-0 overflow-y-auto scroll-thin p-4 sm:p-5 space-y-4"
-        >
-          <p
-            id="top10Aviso"
-            class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs text-amber-900 font-medium"
-          ></p>
-          <p id="top10Meta" class="text-xs text-slate-500 font-medium"></p>
-          <div
-            id="top10Metrics"
-            class="grid grid-cols-1 sm:grid-cols-3 gap-3"
-          ></div>
-          <div
-            class="rounded-2xl bg-white border border-slate-200/90 p-4 sm:p-5 shadow-xs"
-          >
-            <div
-              class="flex items-center justify-between pb-3 border-b border-slate-100"
-            >
-              <h3
-                class="text-sm font-extrabold text-slate-900 flex items-center gap-2"
-              >
-                <i data-lucide="trending-up" class="w-4 h-4 text-[#0e7048]"></i>
-                <span>Histórico de Variação</span>
-              </h3>
-              <div
-                id="top10FaixaPreco"
-                class="text-xs font-bold text-[#0e7048] bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60"
-              ></div>
-            </div>
-            <div id="top10GraficoBox" class="pt-3"></div>
-          </div>
-          <div>
-            <h3
-              class="text-sm font-extrabold text-slate-900 mb-3 flex items-center gap-2"
-            >
-              <i data-lucide="award" class="w-4 h-4 text-[#0e7048]"></i>
-              <span>Os 10 Postos Mais Baratos</span>
-            </h3>
-            <div
-              id="top10Cards"
-              class="grid grid-cols-1 md:grid-cols-2 gap-3"
-            ></div>
-          </div>
+        <div class="modal-body scroll-thin">
+          <dl id="top10Metrics" class="stats"></dl>
+          <div id="top10GraficoBox"></div>
+          <p id="top10Aviso" class="footnote hidden" style="padding-bottom: 0"></p>
+          <p class="modal-foot">
+            <button id="top10VerTabelaGeral" type="button" class="link">Ver todos os registros da pesquisa</button>
+          </p>
         </div>
       </div>
     </div>
+    <div id="grafTip" class="graf-tip hidden"></div>
 
-    <!-- ===================================================================
-         SCRIPTS COMPONENTIZADOS
-         =================================================================== -->
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      crossorigin=""
-    ></script>
-    <script src="js/data/stations-data.js?v=3"></script>
-    <script src="js/components/map-view.js?v=3"></script>
-    <script src="js/components/bottom-sheet.js?v=3"></script>
-    <script src="js/components/list-view.js?v=3"></script>
-    <script src="js/components/modals.js?v=3"></script>
-    <script src="js/components/nav.js?v=3"></script>
-    <script src="js/app.js?v=3"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="js/data/stations-data.js?v=4"></script>
+    <script src="js/components/ui.js?v=4"></script>
+    <script src="js/components/map-view.js?v=4"></script>
+    <script src="js/components/bottom-sheet.js?v=4"></script>
+    <script src="js/components/list-view.js?v=4"></script>
+    <script src="js/components/modals.js?v=4"></script>
+    <script src="js/components/nav.js?v=4"></script>
+    <script src="js/app.js?v=4"></script>
   </body>
 </html>
