@@ -1,21 +1,22 @@
 /**
- * Combustível Certo · Componente de Modais (10 Mais Baratos & Tabela Completa ANP)
+ * Combustível Certo · Ranking "10 mais baratos" e tela da pesquisa ANP (todos os registros)
  */
 const Modals = (() => {
   const modalTop10 = document.getElementById('modalTop10');
-  const modalTabela = document.getElementById('modalTabela');
   let top10Periodo = '4';
   let top10Fuel = 'gasolina'; // 'gasolina' | 'etanol' | 'diesel'
   let top10Seq = 0;
   let tabSeq = 0;
   let tabTimer = null;
   let onFocusStationCallback = null;
+  let ultimoFoco = null;
 
   let tabCurrentPage = 1;
   const TAB_PAGE_SIZE = 10;
   let tabUltimosRegistros = [];
 
-  const GRAF = { cor: '#047857', corPonto: '#f59e0b', grade: '#e2e8f0', alt: 40, margem: 7 };
+  const GRAF = { cor: '#0e7048', grade: '#e4e1d8', alt: 40, margem: 7 };
+  const PRODUTO = { gasolina: 'GASOLINA COMUM', etanol: 'ETANOL', diesel: 'DIESEL S10' };
   const TAB_FILTROS = {
     combustivel: 'tabCombustivel',
     bairro: 'tabBairro',
@@ -29,117 +30,95 @@ const Modals = (() => {
 
   const precoTabela = n => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 3 });
   const dataBr = isoDate => String(isoDate || '').split('-').reverse().join('/');
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = UI.esc;
+  const tc = UI.titleCase;
+  const preco2 = n => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const nomePosto = r => tc(r.fantasia || r.razao);
+  const enderecoDe = r => tc([[r.endereco, r.numero].filter(Boolean).join(', '), r.bairro].filter(Boolean).join(' · '));
+  const rotaDe = r => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nomePosto(r) + ' ' + (r.endereco || '') + ' Cuiaba')}`;
+  const setPressed = (seletor, attr, valor) => document.querySelectorAll(seletor).forEach(b => b.setAttribute('aria-pressed', String(b.dataset[attr] === valor)));
 
-  function getVehicle() {
-    try {
-      const raw = localStorage.getItem('combustivel_certo_prefs');
-      const p = raw ? JSON.parse(raw) : {};
-      const idx = typeof p.vehicle === 'number' ? p.vehicle : 1;
-      if (typeof window !== 'undefined' && window.VEHICLES && window.VEHICLES[idx]) return window.VEHICLES[idx];
-      if (typeof VEHICLES !== 'undefined' && VEHICLES[idx]) return VEHICLES[idx];
-    } catch (_) {}
-    return (typeof VEHICLES !== 'undefined' ? VEHICLES[1] : null) || { name: 'Padrão', tank: 50 };
-  }
-
+  // Uma linha por posto, na mesma escala de preço e de tempo; o último ponto é o preço atual
   function grafLinha(pts, x, y, larg) {
     const meio = GRAF.alt / 2;
     const xy = pts.map(p => [x(p.dataColeta), y(p.preco)]);
-    return `<svg width="${larg}" height="${GRAF.alt}" viewBox="0 0 ${larg} ${GRAF.alt}" class="block shrink-0" role="img">
+    const fim = xy.length - 1;
+    return `<svg width="${larg}" height="${GRAF.alt}" viewBox="0 0 ${larg} ${GRAF.alt}" aria-hidden="true">
       <line x1="0" x2="${larg}" y1="${meio}" y2="${meio}" stroke="${GRAF.grade}" stroke-width="1"/>
-      ${xy.length > 1 ? `<polyline points="${xy.map(p => p.map(n => n.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="${GRAF.cor}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
-      ${xy.map(([cx, cy], i) => `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.5" fill="${GRAF.corPonto}" stroke="${GRAF.cor}" stroke-width="2"/>
-        <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="11" fill="transparent" class="cursor-pointer" data-tip="${esc(`${dataBr(pts[i].dataColeta)} · ${precoTabela(pts[i].preco)}`)}"/>`).join('')}
+      ${xy.length > 1 ? `<polyline points="${xy.map(p => p.map(n => n.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="${GRAF.cor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
+      ${xy.map(([cx, cy], i) => `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${i === fim ? 4 : 2.5}" fill="${GRAF.cor}" stroke="#fff" stroke-width="${i === fim ? 2 : 1}"/>
+        <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="11" fill="transparent" data-tip="${esc(`${dataBr(pts[i].dataColeta)} · ${precoTabela(pts[i].preco)}`)}"/>`).join('')}
     </svg>`;
   }
 
   function init({ onFocusStation } = {}) {
     onFocusStationCallback = onFocusStation;
 
-    // Fechar modal Top 10
     document.getElementById('top10Close')?.addEventListener('click', fecharTop10);
     modalTop10?.addEventListener('click', e => { if (e.target === modalTop10) fecharTop10(); });
-
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') {
-        fecharTop10();
-      }
+      if (e.key === 'Escape' && modalTop10 && !modalTop10.classList.contains('hidden')) fecharTop10();
     });
 
-    // Abas de combustível do Top 10 (Gasolina, Etanol, Diesel S10)
     document.getElementById('top10FuelTabs')?.addEventListener('click', e => {
       const b = e.target.closest('[data-top10-fuel]');
       if (!b) return;
       top10Fuel = b.dataset.top10Fuel;
-      document.querySelectorAll('.top10-fuel-btn').forEach(btn => {
-        const ativo = btn.dataset.top10Fuel === top10Fuel;
-        btn.classList.toggle('bg-amber-400', ativo);
-        btn.classList.toggle('text-slate-950', ativo);
-        btn.classList.toggle('shadow-sm', ativo);
-        btn.classList.toggle('ring-1', ativo);
-        btn.classList.toggle('ring-amber-300', ativo);
-        btn.classList.toggle('font-extrabold', ativo);
-        btn.classList.toggle('bg-slate-800/80', !ativo);
-        btn.classList.toggle('text-slate-200', !ativo);
-        btn.classList.toggle('font-bold', !ativo);
-      });
+      setPressed('[data-top10-fuel]', 'top10Fuel', top10Fuel);
       loadTop10();
     });
 
-    // Filtros de período do Top 10
     document.getElementById('top10PeriodoBtns')?.addEventListener('click', e => {
       const b = e.target.closest('[data-top10-periodo]');
       if (!b) return;
       top10Periodo = b.dataset.top10Periodo;
-      document.querySelectorAll('.top10-p-btn').forEach(btn => {
-        const ativo = btn.dataset.top10Periodo === top10Periodo;
-        btn.classList.toggle('bg-white', ativo);
-        btn.classList.toggle('text-[#0e7048]', ativo);
-        btn.classList.toggle('shadow-2xs', ativo);
-        btn.classList.toggle('font-extrabold', ativo);
-        btn.classList.toggle('text-slate-600', !ativo);
-        btn.classList.toggle('font-bold', !ativo);
-      });
+      setPressed('[data-top10-periodo]', 'top10Periodo', top10Periodo);
       loadTop10();
     });
 
-    // Atalho do Top 10 para ver a Visão de Dados (sem esconder a barra inferior!)
     document.getElementById('top10VerTabelaGeral')?.addEventListener('click', () => {
       fecharTop10();
       abrirTabela();
     });
 
-    // Clique em "Ver no mapa" dentro do Top 10
+    // Tocar num posto do ranking leva ao mapa
     modalTop10?.addEventListener('click', e => {
-      const btnFoco = e.target.closest('[data-focar-posto]');
-      if (btnFoco && typeof onFocusStationCallback === 'function') {
+      const linha = e.target.closest('[data-focar-posto]');
+      if (linha && typeof onFocusStationCallback === 'function') {
         fecharTop10();
-        onFocusStationCallback(btnFoco.dataset.focarPosto);
+        onFocusStationCallback(linha.dataset.focarPosto);
       }
     });
 
-    // Botão de recarregar na tela de dados
+    // Valor de cada ponto do gráfico ao passar o mouse ou tocar
+    const tip = document.getElementById('grafTip');
+    const box = document.getElementById('top10GraficoBox');
+    box?.addEventListener('pointerover', e => {
+      const alvo = e.target.closest?.('[data-tip]');
+      if (!alvo || !tip) return;
+      const r = alvo.getBoundingClientRect();
+      tip.textContent = alvo.dataset.tip;
+      tip.style.left = r.left + r.width / 2 + 'px';
+      tip.style.top = r.top + r.height / 2 + 'px';
+      tip.classList.remove('hidden');
+    });
+    box?.addEventListener('pointerout', e => { if (e.target.closest?.('[data-tip]')) tip?.classList.add('hidden'); });
+
     document.getElementById('tabReloadBtn')?.addEventListener('click', loadTabela);
 
-    // Alternar gaveta de filtros avançados (não ocupa espaço na tela no mobile)
     const toggleFiltrosBtn = document.getElementById('tabToggleFiltrosBtn');
-    const chevronFiltros = document.getElementById('tabToggleFiltrosChevron');
     const gavetaFiltros = document.getElementById('tabFiltrosAvancados');
     toggleFiltrosBtn?.addEventListener('click', () => {
       if (!gavetaFiltros) return;
-      const isHidden = gavetaFiltros.classList.toggle('hidden');
-      chevronFiltros?.classList.toggle('rotate-180', !isHidden);
+      const fechado = gavetaFiltros.classList.toggle('hidden');
+      toggleFiltrosBtn.setAttribute('aria-expanded', String(!fechado));
     });
 
-    // Filtros da Visão de Dados
     for (const id of Object.values(TAB_FILTROS)) {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener('input', () => {
-          clearTimeout(tabTimer);
-          tabTimer = setTimeout(loadTabela, 350);
-        });
-      }
+      document.getElementById(id)?.addEventListener('input', () => {
+        clearTimeout(tabTimer);
+        tabTimer = setTimeout(loadTabela, 350);
+      });
     }
 
     document.getElementById('tabLimpar')?.addEventListener('click', () => {
@@ -150,88 +129,72 @@ const Modals = (() => {
       loadTabela();
     });
 
-    // Clique em "Ver no mapa" dentro dos cards e tabela da tela de dados
     document.getElementById('viewDados')?.addEventListener('click', e => {
       const btnFoco = e.target.closest('[data-tab-foco-mapa]');
-      if (btnFoco && typeof onFocusStationCallback === 'function') {
-        onFocusStationCallback(btnFoco.dataset.tabFocoMapa);
-      }
+      if (btnFoco && typeof onFocusStationCallback === 'function') onFocusStationCallback(btnFoco.dataset.tabFocoMapa);
+      if (e.target.closest('#tabRetryBtn')) loadTabela();
     });
 
-    // Navegação de páginas da tabela ANP (10 em 10)
-    document.getElementById('tabPagPrev')?.addEventListener('click', () => {
-      if (tabCurrentPage > 1) {
-        tabCurrentPage--;
-        renderTabRows();
-        document.getElementById('viewDados')?.querySelector('.overflow-y-auto')?.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-    });
+    const irParaPagina = delta => {
+      tabCurrentPage += delta;
+      renderTabRows();
+      document.querySelector('#viewDados .scroll-thin')?.scrollTo({ top: 0 });
+    };
+    document.getElementById('tabPagPrev')?.addEventListener('click', () => { if (tabCurrentPage > 1) irParaPagina(-1); });
     document.getElementById('tabPagNext')?.addEventListener('click', () => {
-      const totalPages = Math.max(1, Math.ceil(tabUltimosRegistros.length / TAB_PAGE_SIZE));
-      if (tabCurrentPage < totalPages) {
-        tabCurrentPage++;
-        renderTabRows();
-        document.getElementById('viewDados')?.querySelector('.overflow-y-auto')?.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      if (tabCurrentPage < Math.ceil(tabUltimosRegistros.length / TAB_PAGE_SIZE)) irParaPagina(1);
     });
   }
 
-  function abrirTop10() {
+  function abrirTop10(fuelId) {
     if (!modalTop10) return;
+    if (fuelId && PRODUTO[fuelId]) {
+      top10Fuel = fuelId;
+      setPressed('[data-top10-fuel]', 'top10Fuel', top10Fuel);
+    }
+    ultimoFoco = document.activeElement;
     modalTop10.classList.remove('hidden');
-    modalTop10.classList.add('flex');
+    document.getElementById('top10Close')?.focus();
     loadTop10();
   }
 
   function fecharTop10() {
-    if (!modalTop10) return;
-    modalTop10.classList.remove('flex');
+    if (!modalTop10 || modalTop10.classList.contains('hidden')) return;
     modalTop10.classList.add('hidden');
+    document.getElementById('grafTip')?.classList.add('hidden');
+    ultimoFoco?.focus?.();
   }
 
   function abrirTabela() {
-    // Abre a visão de dados nativa mantendo a barra de navegação inferior ativa e visível!
-    if (typeof Navigation !== 'undefined' && typeof Navigation.switchTab === 'function') {
-      Navigation.switchTab('dados');
-    }
+    if (typeof Navigation !== 'undefined' && typeof Navigation.switchTab === 'function') Navigation.switchTab('dados');
   }
 
   async function loadTop10() {
-    const boxGrafico = document.getElementById('top10GraficoBox');
-    const boxCards = document.getElementById('top10Cards');
+    const box = document.getElementById('top10GraficoBox');
     const boxMetrics = document.getElementById('top10Metrics');
     const meta = document.getElementById('top10Meta');
-    const faixa = document.getElementById('top10FaixaPreco');
     const aviso = document.getElementById('top10Aviso');
-    if (!boxGrafico || !boxCards) return;
+    if (!box) return;
+
+    const estado = (titulo, texto = '', tentar = false) => {
+      if (boxMetrics) boxMetrics.classList.add('hidden');
+      box.innerHTML = `<div class="state"><strong>${esc(titulo)}</strong>${esc(texto)}${tentar ? '<div><button type="button" class="btn btn-quiet" id="top10Retry">Tentar de novo</button></div>' : ''}</div>`;
+      box.querySelector('#top10Retry')?.addEventListener('click', loadTop10);
+      box.style.opacity = '1';
+    };
 
     if (location.protocol === 'file:') {
-      if (meta) meta.textContent = 'Servidor local necessário';
-      if (aviso) {
-        aviso.textContent = 'O ranking oficial da ANP depende do servidor. Execute "node server.js" e acesse http://localhost:8080.';
-        aviso.classList.remove('hidden');
-      }
-      return;
+      if (meta) meta.textContent = '';
+      return estado('O ranking precisa do servidor.', 'Rode "node server.js" e abra http://localhost:8080.');
     }
 
     const seq = ++top10Seq;
-    if (meta) meta.textContent = 'Consultando preços oficiais da ANP em Cuiabá…';
-    boxGrafico.style.opacity = '0.5';
-    boxCards.style.opacity = '0.5';
+    const produto = PRODUTO[top10Fuel] || PRODUTO.gasolina;
+    if (meta) meta.textContent = 'Consultando a pesquisa da ANP…';
+    if (box.children.length) box.style.opacity = '0.5';
+    else estado('Carregando…');
 
-    const PRODUTO_MAP = {
-      gasolina: 'GASOLINA COMUM',
-      etanol: 'ETANOL',
-      diesel: 'DIESEL S10'
-    };
-    const produto = PRODUTO_MAP[top10Fuel] || 'GASOLINA COMUM';
-
-    const params = new URLSearchParams({
-      municipio: 'CUIABA',
-      uf: 'MT',
-      combustivel: produto,
-      semanas: top10Periodo
-    });
+    const params = new URLSearchParams({ municipio: 'CUIABA', uf: 'MT', combustivel: produto, semanas: top10Periodo });
 
     try {
       const res = await fetch('api/precos?' + params, { signal: AbortSignal.timeout(180000) });
@@ -240,18 +203,13 @@ const Modals = (() => {
       if (!res.ok) throw new Error(j.erro || 'HTTP ' + res.status);
 
       if (aviso) {
-        if (j.aviso) {
-          aviso.textContent = j.aviso;
-          aviso.classList.remove('hidden');
-        } else {
-          aviso.classList.add('hidden');
-        }
+        aviso.textContent = j.aviso || '';
+        aviso.classList.toggle('hidden', !j.aviso);
       }
-
       if (meta) {
         meta.textContent = j.semanaReferencia
-          ? `Semana de referência: ${j.semanaReferencia.periodo} · Atualizado em: ${new Date(j.ultimaAtualizacao).toLocaleDateString('pt-BR')}`
-          : 'Pesquisa oficial ANP';
+          ? `Pesquisa ANP · semana de ${j.semanaReferencia.periodo}`
+          : 'Pesquisa ANP';
       }
 
       const porPosto = new Map();
@@ -266,189 +224,84 @@ const Modals = (() => {
       const top = series.sort((a, b) => fim(a).preco - fim(b).preco || fim(b).dataColeta.localeCompare(fim(a).dataColeta) || fim(a).razao.localeCompare(fim(b).razao)).slice(0, 10);
 
       if (!top.length) {
-        const labelCombustivel = PRODUTO_MAP[top10Fuel] || 'Combustível';
-        boxGrafico.innerHTML = `<p class="py-6 text-center text-sm text-slate-500 font-medium">Nenhum registro de ${esc(labelCombustivel)} encontrado neste período.</p>`;
-        boxCards.innerHTML = '';
-        if (boxMetrics) boxMetrics.innerHTML = '';
-        boxGrafico.style.opacity = '1';
-        boxCards.style.opacity = '1';
-        return;
+        return estado(`Nenhum preço de ${produto.toLowerCase()} neste período.`, 'Escolha outro combustível ou amplie o período.');
       }
 
-      const todos = top.flat();
-      const precos = todos.map(p => p.preco);
+      const precos = top.flat().map(p => p.preco);
       const minP = Math.min(...precos);
       const maxP = Math.max(...precos);
-      const ultimosPrecos = top.map(pts => fim(pts).preco);
-      const menorAtual = Math.min(...ultimosPrecos);
-      const maiorAtual = Math.max(...ultimosPrecos);
-      const mediaAtual = ultimosPrecos.reduce((a, b) => a + b, 0) / ultimosPrecos.length;
-
-      if (faixa) faixa.textContent = `Menor: ${precoTabela(menorAtual)} · Maior: ${precoTabela(maiorAtual)}`;
+      const atuais = top.map(pts => fim(pts).preco);
+      const menorAtual = Math.min(...atuais);
+      const maiorAtual = Math.max(...atuais);
+      const mediaAtual = atuais.reduce((a, b) => a + b, 0) / atuais.length;
 
       if (boxMetrics) {
+        boxMetrics.classList.remove('hidden');
         boxMetrics.innerHTML = `
-          <div class="rounded-2xl bg-[#091e26] text-white p-4 sm:p-5 shadow-sm border border-slate-800">
-            <div class="text-[10px] font-bold uppercase tracking-wider text-[#f5b723] flex items-center gap-1.5">
-              <i data-lucide="trophy" class="w-3.5 h-3.5 text-[#f5b723]"></i>
-              <span>Campeão do Menor Preço</span>
-            </div>
-            <div class="mt-1 text-2xl font-black tabular-nums tracking-tight text-white">${precoTabela(menorAtual)}</div>
-            <div class="text-xs text-slate-300 truncate mt-0.5 font-medium">${esc(fim(top[0]).fantasia || fim(top[0]).razao)}</div>
-          </div>
-          <div class="rounded-2xl bg-white border border-slate-200/90 p-4 sm:p-5 shadow-2xs">
-            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Preço Médio do Top 10</div>
-            <div class="mt-1 text-2xl font-black text-slate-900 tabular-nums tracking-tight">${precoTabela(mediaAtual)}</div>
-            <div class="text-xs text-slate-500 font-medium mt-0.5">Média entre os 10 mais baratos</div>
-          </div>
-          <div class="rounded-2xl bg-white border border-slate-200/90 p-4 sm:p-5 shadow-2xs">
-            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Diferença no Top 10</div>
-            <div class="mt-1 text-2xl font-black text-slate-900 tabular-nums tracking-tight">${precoTabela(maiorAtual - menorAtual)}</div>
-            <div class="text-xs text-slate-500 font-medium mt-0.5">Variação do 1º ao 10º colocado</div>
-          </div>
+          <div><dt>Menor preço</dt><dd class="price price-md">${precoTabela(menorAtual)}</dd><small>${esc(nomePosto(fim(top[0])))}</small></div>
+          <div><dt>Média dos ${top.length}</dt><dd class="price price-md">${preco2(mediaAtual)}</dd></div>
+          <div><dt>Do 1º ao ${top.length}º</dt><dd class="price price-md">${preco2(maiorAtual - menorAtual)}</dd><small>de diferença</small></div>
         `;
       }
 
       const winW = document.documentElement.clientWidth || window.innerWidth || 360;
-      const larg = winW < 400 ? 75 : winW < 640 ? 110 : 280;
+      const larg = winW < 400 ? 72 : winW < 640 ? 104 : 220;
       const t = d => Date.parse(d + 'T00:00:00Z');
       const ids = [...j.semanasConsultadas].sort();
       const t0 = t(ids[0].slice(0, 10)), t1 = t(ids[ids.length - 1].slice(11));
       const x = d => GRAF.margem + (t1 > t0 ? (t(d) - t0) / (t1 - t0) : 0.5) * (larg - 2 * GRAF.margem);
       const y = p => (maxP > minP ? GRAF.alt - GRAF.margem - (p - minP) / (maxP - minP) * (GRAF.alt - 2 * GRAF.margem) : GRAF.alt / 2);
+      const semanaAtual = j.semanaReferencia?.id;
 
-      const linhasGrafico = top.map((pts, i) => {
+      const linhas = top.map((pts, i) => {
         const a = pts[0], b = fim(pts), dif = b.preco - a.preco;
-        const variacao = pts.length < 2 ? `1 coleta (${dataBr(b.dataColeta).slice(0, 5)})`
-          : Math.abs(dif) < 0.005 ? `estável`
-          : `${dif > 0 ? '▲' : '▼'} ${precoTabela(Math.abs(dif))}`;
-        return `<li class="flex items-center gap-2 sm:gap-3 py-2 border-b border-slate-100 last:border-0 hover:bg-emerald-50/40 rounded-xl px-1.5 sm:px-2 transition">
-          <span class="w-5 sm:w-6 shrink-0 text-right text-xs font-black ${i < 3 ? 'text-amber-500' : 'text-slate-400'}">${i + 1}º</span>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-xs sm:text-sm font-bold text-slate-900">${esc(b.fantasia || b.razao)}</div>
-            <div class="truncate text-[10px] sm:text-[11px] text-slate-500 font-medium">${esc([b.bairro, b.bandeira].filter(Boolean).join(' · '))}</div>
-          </div>
-          ${grafLinha(pts, x, y, larg)}
-          <div class="w-20 sm:w-36 shrink-0 text-right">
-            <div class="text-xs sm:text-sm font-black text-[#0e7048]">${precoTabela(b.preco)}</div>
-            <div class="text-[10px] sm:text-[11px] text-slate-500 font-medium">${variacao}</div>
-          </div>
+        const variacao = pts.length < 2 ? `1 coleta, em ${dataBr(b.dataColeta).slice(0, 5)}`
+          : Math.abs(dif) < 0.005 ? `${UI.icon('minus')}estável`
+          : `${UI.icon(dif > 0 ? 'arrow-up-right' : 'arrow-down-right')}${dif > 0 ? 'subiu' : 'caiu'} ${precoTabela(Math.abs(dif))}`;
+        const antigo = semanaAtual && b.semana !== semanaAtual;
+        return `<li>
+          <button type="button" class="rank-row" data-focar-posto="${esc('anp-' + b.cnpj)}" title="Ver no mapa">
+            <span class="row-rank${i === 0 ? ' is-best' : ''}">${i + 1}</span>
+            <span class="row-main">
+              <span class="row-name">${esc(nomePosto(b))}</span>
+              <span class="row-sub">${esc(tc([b.bairro, b.bandeira].filter(Boolean).join(' · ')))}</span>
+              ${antigo ? `<span class="rank-stale">${UI.icon('triangle-alert')}Atenção: sem coleta na última semana</span>` : ''}
+            </span>
+            ${grafLinha(pts, x, y, larg)}
+            <span class="r">
+              <span class="price price-md">${precoTabela(b.preco)}</span>
+              <span class="rank-var">${variacao}</span>
+            </span>
+          </button>
         </li>`;
       }).join('');
 
-      boxGrafico.innerHTML = `
-        <div class="flex items-center gap-2 sm:gap-3 text-[10px] text-slate-400 font-semibold px-1.5 sm:px-2 pb-1">
-          <span class="w-5 sm:w-6 shrink-0 text-right">#</span><span class="min-w-0 flex-1">Posto & Bairro</span>
-          <span class="flex justify-between shrink-0" style="width:${larg}px"><span>${dataBr(ids[0].slice(0, 10)).slice(0, 5)}</span><span>${dataBr(ids[ids.length - 1].slice(11)).slice(0, 5)}</span></span>
-          <span class="w-20 sm:w-36 shrink-0 text-right">Preço</span>
+      box.innerHTML = `
+        <div class="rank-head">
+          <span></span><span>Posto</span>
+          <span class="axis" style="width:${larg}px"><span>${dataBr(ids[0].slice(0, 10)).slice(0, 5)}</span><span>${dataBr(ids[ids.length - 1].slice(11)).slice(0, 5)}</span></span>
+          <span class="r">Preço atual</span>
         </div>
-        <ol>${linhasGrafico}</ol>
+        <ol class="rank-list">${linhas}</ol>
       `;
-
-      const veh = getVehicle();
-      const medalhas = [
-        '<i data-lucide="trophy" class="w-3 h-3 text-emerald-950 inline"></i> 1º Lugar',
-        '<i data-lucide="medal" class="w-3 h-3 text-emerald-950 inline"></i> 2º Lugar',
-        '<i data-lucide="medal" class="w-3 h-3 text-emerald-950 inline"></i> 3º Lugar'
-      ];
-      boxCards.innerHTML = top.map((pts, i) => {
-        const b = fim(pts);
-        const isPrimeiro = i === 0;
-        const isTop3 = i < 3;
-        const borderClass = isPrimeiro
-          ? 'border-2 border-[#0e7048] ring-4 ring-[#0e7048]/10 bg-white shadow-md'
-          : 'border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs';
-
-        const badgeMedal = isTop3
-          ? `<span class="rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 text-[10px] font-black px-2.5 py-0.5 border border-amber-400/80 shadow-2xs inline-flex items-center gap-1">${medalhas[i]}</span>`
-          : `<span class="rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5">#${i + 1}</span>`;
-
-        const difPrimeiro = b.preco - menorAtual;
-        const difTxt = difPrimeiro === 0 ? '<span class="inline-flex items-center gap-1 text-[#0e7048] font-bold"><i data-lucide="trophy" class="w-3 h-3 text-[#f5b723]"></i>Menor preço</span>' : `+${precoTabela(difPrimeiro)} vs 1º lugar`;
-        const stationId = 'anp-' + b.cnpj;
-
-        const tanqueCheio = b.preco * veh.tank;
-        const meioTanque = tanqueCheio / 2;
-
-        return `
-          <div class="rounded-2xl ${borderClass} p-4 sm:p-5 flex flex-col justify-between transition hover:border-slate-300">
-            <div>
-              <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  ${badgeMedal}
-                  <span class="rounded-full bg-slate-100 text-slate-700 border border-slate-200/70 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">${esc(b.bandeira || 'Branca')}</span>
-                </div>
-                <div class="text-right">
-                  <div class="text-2xl font-black tabular-nums tracking-tight text-[#0e7048]">${precoTabela(b.preco)}</div>
-                  <div class="text-[10px] font-bold text-[#0e7048]">${difTxt}</div>
-                </div>
-              </div>
-              <h4 class="mt-2 text-sm font-bold text-slate-900 leading-snug tracking-tight">${esc(b.fantasia || b.razao)}</h4>
-              <p class="text-xs text-slate-500 mt-0.5 truncate">${esc([[b.endereco, b.numero].filter(Boolean).join(', '), b.bairro].filter(Boolean).join(' · '))}</p>
-
-              <!-- Simulação Tanque Cheio e Meio Tanque modelo do site -->
-              <div class="mt-3 pt-2.5 border-t border-slate-100 grid grid-cols-2 gap-2">
-                <div class="rounded-xl bg-emerald-50 border border-emerald-200/80 p-2 text-center">
-                  <div class="text-[10px] font-bold text-[#0e7048] uppercase tracking-wide flex items-center justify-center gap-1">
-                    <i data-lucide="fuel" class="w-3 h-3 text-[#0e7048]"></i>
-                    <span>Tanque (${veh.tank}L)</span>
-                  </div>
-                  <div class="text-sm font-black text-emerald-950 mt-0.5 tabular-nums">
-                    ${precoTabela(tanqueCheio)}
-                  </div>
-                </div>
-                <div class="rounded-xl bg-amber-50 border border-amber-200/80 p-2 text-center">
-                  <div class="text-[10px] font-bold text-amber-700 uppercase tracking-wide flex items-center justify-center gap-1">
-                    <i data-lucide="gauge" class="w-3 h-3 text-amber-600"></i>
-                    <span>Meio (${veh.tank / 2}L)</span>
-                  </div>
-                  <div class="text-sm font-black text-amber-950 mt-0.5 tabular-nums">
-                    ${precoTabela(meioTanque)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-              <button data-focar-posto="${esc(stationId)}" class="rounded-xl border border-emerald-900/20 bg-emerald-950/10 hover:bg-emerald-950/20 text-[#0e7048] text-xs font-bold px-3 py-1.5 transition active:scale-95 cursor-pointer flex items-center gap-1.5">
-                <i data-lucide="map" class="w-3.5 h-3.5 text-[#0e7048]"></i>
-                <span>Ver no mapa</span>
-              </button>
-              <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((b.fantasia || b.razao) + ' Cuiaba')}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-emerald-950 text-xs font-bold text-white px-3.5 py-1.5 shadow-2xs hover:shadow-xs transition active:scale-95 cursor-pointer">
-                <i data-lucide="navigation" class="w-3.5 h-3.5 text-amber-300"></i>
-                <span>Traçar rota</span>
-              </a>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      boxGrafico.style.opacity = '1';
-      boxCards.style.opacity = '1';
-      if (window.lucide && typeof window.lucide.createIcons === 'function') {
-        window.lucide.createIcons();
-      }
+      box.style.opacity = '1';
+      UI.icons();
     } catch (err) {
       if (seq !== top10Seq) return;
-      if (meta) meta.textContent = 'Erro ao consultar ANP';
-      boxGrafico.innerHTML = `<p class="py-4 text-center text-sm text-slate-500">Não foi possível carregar os dados: ${esc(err.message)}.</p>`;
-      boxCards.innerHTML = '';
-      if (boxMetrics) boxMetrics.innerHTML = '';
-      boxGrafico.style.opacity = '1';
-      boxCards.style.opacity = '1';
+      if (meta) meta.textContent = '';
+      estado('Não foi possível carregar o ranking.', err.message, true);
     }
   }
 
-  function tabEstado(msg) {
+  function tabEstado(titulo, texto = '', tentar = false) {
     const el = document.getElementById('tabEstado');
-    const cards = document.getElementById('tabCardsContainer');
-    const tableWrap = document.getElementById('tabTableWrap');
     if (el) {
-      el.textContent = msg || '';
-      el.classList.toggle('hidden', !msg);
+      el.innerHTML = titulo ? `<strong>${esc(titulo)}</strong>${esc(texto)}${tentar ? '<div><button type="button" class="btn btn-quiet" id="tabRetryBtn">Tentar de novo</button></div>' : ''}` : '';
+      el.classList.toggle('hidden', !titulo);
     }
-    if (cards) cards.classList.toggle('hidden', !!msg);
-    if (tableWrap) tableWrap.classList.toggle('hidden', !!msg);
+    document.getElementById('tabCardsContainer')?.classList.toggle('hidden', !!titulo);
+    document.getElementById('tabTableWrap')?.classList.toggle('hidden', !!titulo);
+    document.getElementById('tabPagination')?.classList.toggle('hidden', !!titulo);
   }
 
   function tabOpcoes(id, valores, rotulo) {
@@ -456,132 +309,66 @@ const Modals = (() => {
     if (!el) return;
     const atual = el.value;
     const lista = atual && !valores.includes(atual) ? [atual, ...valores] : valores;
-    el.innerHTML = `<option value="">${rotulo}</option>` + lista.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    el.innerHTML = `<option value="">${rotulo}</option>` + lista.map(v => `<option value="${esc(v)}">${esc(tc(v))}</option>`).join('');
     el.value = atual;
   }
 
   function renderTabRows() {
     const totalRegs = tabUltimosRegistros.length;
     const totalPages = Math.max(1, Math.ceil(totalRegs / TAB_PAGE_SIZE));
-    if (tabCurrentPage > totalPages) tabCurrentPage = totalPages;
-    if (tabCurrentPage < 1) tabCurrentPage = 1;
+    tabCurrentPage = Math.min(Math.max(1, tabCurrentPage), totalPages);
 
     const startIdx = (tabCurrentPage - 1) * TAB_PAGE_SIZE;
     const endIdx = Math.min(startIdx + TAB_PAGE_SIZE, totalRegs);
     const paged = tabUltimosRegistros.slice(startIdx, endIdx);
 
-    // 1. Renderiza Cards Espaçosos para telas menores (Celular) - sem espremer dados!
-    const cardsContainer = document.getElementById('tabCardsContainer');
-    if (cardsContainer) {
-      cardsContainer.innerHTML = paged.map(r => {
-        const stationId = 'anp-' + r.cnpj;
-        const enderecoCompleto = [[r.endereco, r.numero].filter(Boolean).join(', '), r.bairro].filter(Boolean).join(' · ');
-        const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((r.fantasia || r.razao) + ' Cuiaba')}`;
+    const acoes = r => `
+      <button type="button" class="link" data-tab-foco-mapa="${esc('anp-' + r.cnpj)}">Ver no mapa</button>
+      <a class="link" href="${rotaDe(r)}" target="_blank" rel="noopener">Abrir no Google Maps</a>`;
 
-        return `
-          <div class="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs hover:border-slate-300 transition">
-            <!-- Linha Superior: Tags e Data -->
-            <div class="flex items-center justify-between gap-2 mb-2">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-extrabold text-[10px] uppercase border border-slate-200/60">${esc(r.bandeira || 'Branca')}</span>
-                <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-200/50">${esc(r.produto)}</span>
-              </div>
-              <span class="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-                <i data-lucide="calendar" class="w-3 h-3 text-slate-400"></i>
-                <span>${esc(dataBr(r.dataColeta))}</span>
-              </span>
-            </div>
-
-            <!-- Linha Central: Nome do Posto e Preço em Destaque -->
-            <div class="flex items-baseline justify-between gap-3 mt-1.5">
-              <div class="min-w-0 flex-1">
-                <h3 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">${esc(r.fantasia || r.razao)}</h3>
-                <p class="text-xs text-slate-500 mt-1 line-clamp-2">${esc(enderecoCompleto)}</p>
-              </div>
-              <div class="text-right shrink-0">
-                <div class="text-xl sm:text-2xl font-black text-[#0e7048] tabular-nums">${precoTabela(r.preco)}</div>
-                <div class="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">por litro</div>
-              </div>
-            </div>
-
-            <!-- Linha Inferior: Ações (Ver no Mapa / Traçar Rota) -->
-            <div class="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-              <button
-                data-tab-foco-mapa="${esc(stationId)}"
-                type="button"
-                class="px-3 py-1.5 rounded-xl border border-emerald-900/20 bg-emerald-950/10 hover:bg-emerald-950/20 text-[#0e7048] font-bold text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
-              >
-                <i data-lucide="map" class="w-3.5 h-3.5 text-[#0e7048]"></i>
-                <span>Ver no mapa</span>
-              </button>
-
-              <a
-                href="${gmapsUrl}"
-                target="_blank"
-                rel="noopener"
-                class="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-emerald-950 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
-              >
-                <i data-lucide="navigation" class="w-3.5 h-3.5 text-amber-300"></i>
-                <span>Traçar rota</span>
-              </a>
-            </div>
+    // Celular: lista de registros
+    const cards = document.getElementById('tabCardsContainer');
+    if (cards) {
+      cards.innerHTML = paged.map(r => `
+        <li class="rec">
+          <div style="min-width:0">
+            <div class="rec-name">${esc(nomePosto(r))}</div>
+            <div class="rec-sub">${esc(enderecoDe(r))}</div>
+            <div class="rec-meta">${esc([tc(r.bandeira || 'Branca'), tc(r.produto), 'coleta ' + dataBr(r.dataColeta)].join(' · '))}</div>
           </div>
-        `;
-      }).join('');
+          <div class="price price-md">${precoTabela(r.preco)}</div>
+          <div class="rec-actions">${acoes(r)}</div>
+        </li>`).join('');
     }
 
-    // 2. Renderiza Tabela Larga para telas maiores (Desktop / Tablet)
+    // Telas largas: tabela
     const corpo = document.getElementById('tabCorpo');
     if (corpo) {
-      corpo.innerHTML = paged.map(r => {
-        const stationId = 'anp-' + r.cnpj;
-        const enderecoCompleto = [[r.endereco, r.numero].filter(Boolean).join(', '), r.bairro].filter(Boolean).join(' · ');
-        const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((r.fantasia || r.razao) + ' Cuiaba')}`;
-
-        return `<tr class="hover:bg-slate-50 transition">
-          <td class="px-5 py-3">
-            <div class="font-bold text-slate-900">${esc(r.fantasia || r.razao)}</div>
-            <div class="text-xs text-slate-500">${esc(enderecoCompleto)}</div>
-          </td>
-          <td class="px-3 py-3 text-slate-600 font-medium">${esc(r.bandeira)}</td>
-          <td class="px-3 py-3">
-            <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-bold text-xs">${esc(r.produto)}</span>
-          </td>
-          <td class="px-4 py-3 text-right whitespace-nowrap">
-            <span class="font-black text-base text-emerald-800 tabular-nums">${precoTabela(r.preco)}</span>
-          </td>
-          <td class="px-4 py-3 text-right text-slate-500 whitespace-nowrap text-xs font-semibold">${esc(dataBr(r.dataColeta))}</td>
-          <td class="px-4 py-3 text-center whitespace-nowrap">
-            <div class="inline-flex items-center gap-1.5">
-              <button data-tab-foco-mapa="${esc(stationId)}" class="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition cursor-pointer">Mapa</button>
-              <a href="${gmapsUrl}" target="_blank" rel="noopener" class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-emerald-950 text-white text-xs font-bold transition cursor-pointer">GPS</a>
-            </div>
-          </td>
-        </tr>`;
-      }).join('');
+      corpo.innerHTML = paged.map(r => `<tr>
+          <td><div class="t-name">${esc(nomePosto(r))}</div><div class="t-sub">${esc(enderecoDe(r))}</div></td>
+          <td>${esc(tc(r.bandeira || 'Branca'))}</td>
+          <td>${esc(tc(r.produto))}</td>
+          <td class="num"><span class="price price-md">${precoTabela(r.preco)}</span></td>
+          <td class="num">${esc(dataBr(r.dataColeta))}</td>
+          <td><div class="t-actions">${acoes(r)}</div></td>
+        </tr>`).join('');
     }
 
-    // 3. Paginação Unbreakable e Compacta (10 em 10)
     const pagInfo = document.getElementById('tabPagInfo');
     const pagPage = document.getElementById('tabPagPage');
     const pagPrev = document.getElementById('tabPagPrev');
     const pagNext = document.getElementById('tabPagNext');
-
-    if (pagInfo) pagInfo.innerHTML = `<strong>${totalRegs ? startIdx + 1 : 0}–${endIdx}</strong> de <strong>${totalRegs}</strong><span class="hidden sm:inline"> registros</span>`;
+    if (pagInfo) pagInfo.textContent = `${totalRegs ? startIdx + 1 : 0}–${endIdx} de ${totalRegs} registros`;
     if (pagPage) pagPage.textContent = `${tabCurrentPage} / ${totalPages}`;
     if (pagPrev) pagPrev.disabled = tabCurrentPage === 1;
     if (pagNext) pagNext.disabled = tabCurrentPage === totalPages;
-
-    if (window.lucide && typeof window.lucide.createIcons === 'function') {
-      window.lucide.createIcons();
-    }
   }
 
   async function loadTabela() {
+    const tot = document.getElementById('tabTotal');
     if (location.protocol === 'file:') {
-      const tot = document.getElementById('tabTotal');
       if (tot) tot.textContent = '';
-      return tabEstado('A tabela de preços depende do servidor. Rode "node server.js" e abra http://localhost:8080.');
+      return tabEstado('A pesquisa precisa do servidor.', 'Rode "node server.js" e abra http://localhost:8080.');
     }
     const seq = ++tabSeq;
     const params = new URLSearchParams({ municipio: 'CUIABA', uf: 'MT' });
@@ -589,7 +376,7 @@ const Modals = (() => {
       const el = document.getElementById(id);
       if (el && el.value) params.set(nome, el.value);
     }
-    tabEstado('Carregando preços…');
+    tabEstado('Carregando…');
     try {
       const res = await fetch('api/precos?' + params, { signal: AbortSignal.timeout(180000) });
       const j = await res.json().catch(() => ({}));
@@ -597,12 +384,15 @@ const Modals = (() => {
       if (!res.ok) throw new Error(j.erro || 'HTTP ' + res.status);
 
       const aviso = document.getElementById('tabAviso');
-      if (aviso) aviso.textContent = j.aviso || '';
+      if (aviso) {
+        aviso.textContent = j.aviso || '';
+        aviso.classList.toggle('hidden', !j.aviso);
+      }
 
       const meta = document.getElementById('tabMeta');
       if (meta) {
         meta.textContent = j.semanaReferencia
-          ? `Semana de referência: ${j.semanaReferencia.periodo} · Atualizado: ${new Date(j.ultimaAtualizacao).toLocaleDateString('pt-BR')}`
+          ? `Semana de ${j.semanaReferencia.periodo} · atualizado em ${new Date(j.ultimaAtualizacao).toLocaleDateString('pt-BR')}`
           : 'Nenhuma semana importada ainda';
       }
 
@@ -610,31 +400,23 @@ const Modals = (() => {
       tabOpcoes('tabBairro', j.filtros.bairros, 'Todos');
       tabOpcoes('tabBandeira', j.filtros.bandeiras, 'Todas');
 
-      const tot = document.getElementById('tabTotal');
-      if (tot) tot.textContent = `${j.total} registros`;
+      if (tot) tot.textContent = `${j.total} ${j.total === 1 ? 'registro' : 'registros'}`;
 
       if (!j.registros || !j.registros.length) {
-        document.getElementById('tabPagination')?.classList.add('hidden');
-        return tabEstado('Nenhum registro encontrado para os filtros escolhidos.');
+        UI.icons();
+        return tabEstado('Nenhum registro com esses filtros.', 'Amplie o período ou limpe os filtros.');
       }
 
-      document.getElementById('tabPagination')?.classList.remove('hidden');
       tabUltimosRegistros = j.registros;
       tabCurrentPage = 1;
-      renderTabRows();
       tabEstado('');
+      renderTabRows();
+      UI.icons();
     } catch (err) {
       if (seq !== tabSeq) return;
-      document.getElementById('tabPagination')?.classList.add('hidden');
-      tabEstado(`Não foi possível carregar os preços: ${err.message}.`);
+      tabEstado('Não foi possível carregar a pesquisa.', err.message, true);
     }
   }
 
-  return {
-    init,
-    abrirTop10,
-    fecharTop10,
-    abrirTabela,
-    loadTabela
-  };
+  return { init, abrirTop10, fecharTop10, abrirTabela, loadTabela };
 })();
