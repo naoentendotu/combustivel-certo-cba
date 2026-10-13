@@ -69,7 +69,7 @@ const UI = (() => {
 
   // O endereço na tela pode estar cortado: tocar nele copia o endereço inteiro
   const addrCopy = (s, texto, cls = "") =>
-    `<button type="button" class="addr-copy ${cls}" data-copiar="${esc(s.address.replace(" · ", ", ") + ", Cuiabá - MT")}" title="Copiar endereço">${esc(texto)}</button>`;
+    `<button type="button" class="addr-copy ${cls}" data-copiar="${esc(s.address.replace(" · ", ", ") + ", " + (s.cityLabel || "Cuiabá") + " - MT")}" title="Copiar endereço">${esc(texto)}</button>`;
 
   function stationRow(s, { rank, selected, best, brl, num, tank }) {
     const full = s.full ?? (s.price != null ? s.price * tank : null);
@@ -80,7 +80,7 @@ const UI = (() => {
         <span class="row-main">
           <span class="row-name">${esc(s.name)}</span>
           <span class="row-sub">${esc(s.brand)} · ${esc(s.address)}</span>
-          <span class="row-meta">${dist}${freshness(s)}${s.gnv ? "<span>GNV</span>" : ""}</span>
+          <span class="row-meta">${dist}${freshness(s)}${s.cityTag ? `<span>${esc(s.cityTag)}</span>` : ""}${s.gnv ? "<span>GNV</span>" : ""}</span>
         </span>
         <span class="row-price">
           ${
@@ -145,10 +145,10 @@ const UI = (() => {
   );
 
   // Aviso da tendência da semana, com botão para fechar depois de lido
-  function trendNotice(t, fuelLabel, brl) {
+  function trendNotice(t, fuelLabel, brl, place = "Cuiabá") {
     return `<div class="notice" role="status">
       ${icon("bell")}
-      <span><b>${esc(fuelLabel)} em Cuiabá:</b> ${trend(t.dif, brl)} na semana · média de ${brl(t.media)} nos ${t.postos} postos pesquisados nas duas últimas semanas</span>
+      <span><b>${esc(fuelLabel)} em ${esc(place)}:</b> ${trend(t.dif, brl)} na semana · média de ${brl(t.media)} nos ${t.postos} postos pesquisados nas duas últimas semanas</span>
       <button type="button" class="notice-close" data-fechar-aviso aria-label="Fechar aviso" title="Fechar aviso">${icon("x")}</button>
     </div>`;
   }

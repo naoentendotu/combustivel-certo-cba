@@ -1,6 +1,6 @@
-# Combustível Certo — Cuiabá/MT
+# Combustível Certo — Cuiabá e Várzea Grande/MT
 
-Aplicação web moderna, leve e responsiva para consulta, visualização e comparação de preços de combustíveis nos postos de Cuiabá-MT, utilizando dados abertos oficiais da ANP (Agência Nacional do Petróleo, Gás Natural e Biocombustíveis).
+Aplicação web moderna, leve e responsiva para consulta, visualização e comparação de preços de combustíveis nos postos de Cuiabá e Várzea Grande-MT, utilizando dados abertos oficiais da ANP (Agência Nacional do Petróleo, Gás Natural e Biocombustíveis).
 
 Desenvolvido em **Node.js 20+ com zero dependências externas** no backend e interface componentizada em HTML, CSS e Vanilla JavaScript.
 
@@ -9,7 +9,7 @@ Desenvolvido em **Node.js 20+ com zero dependências externas** no backend e int
 ## Sobre o projeto
 
 ### O problema que resolve
-Encontrar o combustível mais barato exige comparar valores dispersos pela cidade. O **Combustível Certo** consolida os preços pesquisados semanalmente pela ANP em Cuiabá-MT, permitindo que o motorista identifique rapidamente:
+Encontrar o combustível mais barato exige comparar valores dispersos pela cidade. O **Combustível Certo** consolida os preços pesquisados semanalmente pela ANP em Cuiabá e Várzea Grande-MT, permitindo que o motorista identifique rapidamente:
 - O menor preço perto de sua localização atual (via GPS).
 - O menor preço absoluto da cidade por tipo de combustível (Gasolina Comum, Etanol, Diesel S10, Diesel S500 ou GNV).
 - A diferença de economia em relação à média dos postos.
@@ -17,6 +17,7 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 
 ### Principais funcionalidades
 - **Mapa (tela inicial):** cada posto é um marcador com o preço. O menor preço fica em verde cheio; o terço mais barato aparece em verde e o terço mais caro, apagado. Preço fora da última semana pesquisada vem em âmbar com ícone de atenção.
+- **Cidade:** por padrão o app mostra Cuiabá e Várzea Grande juntas. O botão de cidade, no mapa e na lista, deixa escolher só uma delas; a escolha vale para o mapa, a lista, a tendência da semana e o ranking, e fica salva no navegador.
 - **Painel do mapa:** no celular é uma folha inferior com o posto selecionado (preço, data da coleta, custo do tanque e rota) que abre para a lista; no desktop a lista fica fixa ao lado do mapa. Filtros: *Menor preço*, *Mais perto* e *Ocultar sem preço* (ligado por padrão, atrás do botão de filtros).
 - **Lista:** o menor preço do momento em destaque, com a diferença para a média, e todos os postos em ordem, cada um com a data da coleta. Filtros por faixa de preço (barra de duas pontas), bandeira (chips) e bairro (seletor).
 - **Histórico de preço:** em qualquer posto com preço, o botão de histórico abre o gráfico e as coletas da ANP daquele posto em 1 mês ou em todo o histórico.
@@ -31,12 +32,12 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 - **Rota desenhada no mapa:** traçar o trajeto de carro até o posto selecionado (ou o destacado) dentro do próprio mapa, com um servidor próprio do [OSRM](https://github.com/Project-OSRM/osrm-backend). Hoje o botão "Traçar rota" abre o trajeto no Google Maps.
 
 ### Fonte de dados e limitações
-1. **Cadastro dos postos:** Obtido via API de Revendedores da ANP (`/api/anp`), mapeado com coordenadas geográficas de Cuiabá.
+1. **Cadastro dos postos:** Obtido via API de Revendedores da ANP (`/api/anp`), mapeado com coordenadas geográficas de Cuiabá e Várzea Grande.
 2. **Preços oficiais:** Coletados do [Levantamento de Preços de Combustíveis (LPC)](https://www.gov.br/anp/pt-br/assuntos/precos-e-defesa-da-concorrencia/precos/levantamento-de-precos-de-combustiveis-ultimas-semanas-pesquisadas) da ANP.
 3. **Limitações reais:**
    - A pesquisa da ANP é **amostral**: visita uma parcela dos postos da cidade (cerca de 20 a 30 postos por semana com gasolina em Cuiabá, de um total de ~147 cadastrados).
    - Os preços refletem a data da visita do fiscal da ANP e podem sofrer alterações no posto antes da próxima pesquisa.
-   - Quando a ANP não realiza pesquisa em Cuiabá em determinada semana, a semana é registrada sem preços e o histórico anterior é rigorosamente preservado. Nenhum valor é inventado ou estimado.
+   - Quando a ANP não realiza pesquisa na região em determinada semana, a semana é registrada sem preços e o histórico anterior é rigorosamente preservado. Nenhum valor é inventado ou estimado.
 
 ---
 
@@ -68,7 +69,7 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 combustivel-certo/
 ├── api/                     # Funções serverless do Vercel (anp, precos, precos/status)
 ├── data/
-│   └── precos.json          # Histórico consolidado das coletas da ANP em Cuiabá
+│   └── precos.json          # Histórico consolidado das coletas da ANP em Cuiabá e Várzea Grande
 ├── lib/
 │   ├── anp-precos.js        # Módulo de scraping, validação, persistência e consulta
 │   ├── api-service.js       # Serviço compartilhado pelas funções de api/
@@ -88,7 +89,7 @@ combustivel-certo/
 │   │   │   ├── modals.js        # Ranking dos 10 mais baratos e histórico de preço do posto
 │   │   │   └── nav.js           # Navegação: barra inferior no celular, lateral no desktop
 │   │   └── data/
-│   │       └── stations-data.js # Base geoespacial local de postos de Cuiabá (fallback)
+│   │       └── stations-data.js # Base geoespacial local de postos de Cuiabá e Várzea Grande (fallback)
 │   └── index.html           # Aplicação web principal de página única
 ├── scripts/
 │   └── atualizar-precos.js  # CLI para atualizar preços e consultar status da base
@@ -147,7 +148,7 @@ Todas as rotas retornam respostas em formato JSON (`application/json`).
 
 ### 1. Cadastro de Postos
 - **Rota:** `GET /api/anp`
-- **Finalidade:** Consulta o cadastro completo de postos de Cuiabá na API de Revendedores da ANP com cache em memória de 1 hora.
+- **Finalidade:** Consulta o cadastro completo de postos de Cuiabá e Várzea Grande na API de Revendedores da ANP com cache em memória de 1 hora.
 - **Resposta:** Lista de postos com CNPJ, razão social, endereço, bairro, bandeira e produtos autorizados.
 
 ### 2. Consulta de Preços
@@ -160,11 +161,12 @@ Todas as rotas retornam respostas em formato JSON (`application/json`).
   - `precoMin` / `precoMax`: Valores numéricos de corte (ex.: `precoMin=6.00&precoMax=6.60`).
   - `coletaDe` / `coletaAte`: Datas da coleta no formato `AAAA-MM-DD`.
   - `semanas`: Quantidade de semanas mais recentes a incluir (um número, como `1`, `4`, `26` ou `52`, ou `todas`; padrão: `1`).
+  - `municipio`: `CUIABA`, `VARZEA GRANDE` ou os dois separados por vírgula (padrão: os dois).
   - `semana`: ID específico de uma semana (ex.: `2026-10-04_2026-10-10`).
 - **Resposta:**
   ```json
   {
-    "municipio": "CUIABA",
+    "municipio": "CUIABA,VARZEA GRANDE",
     "uf": "MT",
     "fonte": "https://www.gov.br/anp/...",
     "aviso": "Preços da pesquisa semanal da ANP...",
@@ -189,7 +191,7 @@ A coleta é realizada de forma automatizada por `lib/anp-precos.js`:
 1. **Descoberta:** Acessa a página oficial do LPC da ANP e extrai os links das planilhas semanais de "Preços por posto revendedor".
 2. **Ordenação por Data:** Identifica o período real de cada arquivo pelo nome e pelo cabeçalho, processando da mais recente para a mais antiga.
 3. **Download e Extração:** Baixa a planilha `.xlsx` e processa o XML interno sem bibliotecas pesadas.
-4. **Filtragem Restrita:** Isola exclusivamente os registros correspondentes a `CUIABA / MT`, validando preços, datas e CNPJ.
+4. **Filtragem Restrita:** Isola exclusivamente os registros de `CUIABA` e `VARZEA GRANDE` / MT, validando preços, datas e CNPJ.
 5. **Gravação Atômica:** Salva em `data/precos.json` utilizando arquivo temporário seguido de renomeação atômica, evitando corrupção de dados.
 6. **Mecanismo de Lock:** Utiliza `data/atualizacao.lock` para impedir coletas concorrentes simultâneas.
 

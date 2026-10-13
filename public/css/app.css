@@ -609,6 +609,41 @@ wa-select:not(:defined), wa-slider:not(:defined), wa-input:not(:defined) { visib
 .map-bar .seg { border: none; background: transparent; padding: 0; overflow-x: auto; scrollbar-width: none; }
 .map-bar .seg::-webkit-scrollbar { display: none; }
 
+.map-chips { display: flex; flex-wrap: wrap; gap: 8px; max-width: 100%; }
+.map-chip .chev { width: 14px; height: 14px; color: var(--ink-3); }
+
+/* Menu de escolha (cidade) */
+.menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  min-width: 220px;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--ink);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+.menu button:hover { background: var(--paper); }
+.menu button svg { width: 16px; height: 16px; flex: none; color: var(--green); visibility: hidden; }
+.menu button[aria-checked='true'] { font-weight: 600; }
+.menu button[aria-checked='true'] svg { visibility: visible; }
+
 .map-chip {
   display: inline-flex;
   align-items: center;
@@ -940,7 +975,26 @@ wa-select:not(:defined), wa-slider:not(:defined), wa-input:not(:defined) { visib
 .brandline img { width: 38px; height: 38px; }
 .wordmark { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
 .wordmark b { font-weight: 700; color: var(--green); }
-.brandline .place { margin-left: auto; font-size: 13.5px; color: var(--ink-3); }
+.brandline .place {
+  min-width: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.brandline .place:hover { border-color: var(--ink-3); color: var(--ink); }
+.brandline .place svg { width: 14px; height: 14px; flex: none; }
+.brandline .place span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brandline .wordmark { white-space: nowrap; }
 .page-head .seg { margin-top: 12px; }
 
 /* Placa de preço: o menor preço do momento */

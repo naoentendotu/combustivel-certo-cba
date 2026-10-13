@@ -46,6 +46,7 @@
     vehicle: typeof prefs.vehicle === 'number' && typeof VEHICLES !== 'undefined' && VEHICLES[prefs.vehicle] ? prefs.vehicle : 1,
     hideNoPrice: prefs.hideNoPrice ?? true,
     sort: prefs.sort || 'price', // 'price' | 'dist' | 'both'
+    city: CITIES.some(c => c.id === prefs.city) ? prefs.city : '', // '' = as duas cidades
     userPos: null,
     activeId: null,
     currentView: 'map'
@@ -54,11 +55,14 @@
   // Link compartilhado: ?posto=<cnpj>&combustivel=<id> abre o app naquele posto
   const link = new URLSearchParams(location.search);
   if (FUELS.some(f => f.id === link.get('combustivel'))) state.fuel = link.get('combustivel');
-  if (/^\d{14}$/.test(link.get('posto') || '')) state.activeId = 'anp-' + link.get('posto');
+  if (/^\d{14}$/.test(link.get('posto') || '')) {
+    state.activeId = 'anp-' + link.get('posto');
+    state.city = ''; // o posto do link pode ser de qualquer uma das cidades
+  }
 
   let centeredOnBest = false;
 
-  const savePrefs = () => store.set(PREFS_KEY, { fuel: state.fuel, vehicle: state.vehicle, sort: state.sort, hideNoPrice: state.hideNoPrice, custom: VEHICLES[CUSTOM_IDX] || null });
+  const savePrefs = () => store.set(PREFS_KEY, { fuel: state.fuel, vehicle: state.vehicle, sort: state.sort, hideNoPrice: state.hideNoPrice, city: state.city, custom: VEHICLES[CUSTOM_IDX] || null });
 
   function setVehicle(idx) {
     const i = parseInt(idx, 10);
@@ -109,7 +113,30 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCarDialog(); });
   }
 
-  function normalizeStation(cnpj, razao, endereco, bairro, dist, lat, lng, mask) {
+  // O menu de cidade abre logo abaixo do botão que o chamou (o do mapa ou o da lista)
+  function bindCityMenu() {
+    const menu = document.getElementById('cityMenu');
+    if (!menu) return;
+    let origem = null;
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('[popovertarget="cityMenu"]');
+      if (btn) origem = btn;
+    }, true);
+    menu.addEventListener('toggle', e => {
+      if (e.newState !== 'open' || !origem?.isConnected) return;
+      const r = origem.getBoundingClientRect();
+      menu.style.left = Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8)) + 'px';
+      menu.style.top = r.bottom + 6 + 'px';
+    });
+    menu.addEventListener('click', e => {
+      const opcao = e.target.closest('[data-city]');
+      if (!opcao) return;
+      menu.hidePopover();
+      setCity(opcao.dataset.city);
+    });
+  }
+
+  function normalizeStation(cnpj, razao, endereco, bairro, dist, lat, lng, mask, city) {
     lat = parseFloat(lat); lng = parseFloat(lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || haversineKm(CUIABA, { lat, lng }) > 60) return null;
     const d = String(dist || '').trim().toUpperCase();
@@ -119,6 +146,8 @@
       brand: DIST_BRAND[d] || UI.titleCase(d) || WHITE_LABEL.name,
       address: UI.titleCase([endereco, bairro].filter(Boolean).join(' · ')),
       bairro: UI.titleCase(bairro || ''),
+      city: city.id,
+      cityLabel: city.label,
       lat,
       lng,
       gnv: mask.includes('n')
@@ -141,7 +170,7 @@
     state.pricesStatus = 'loading';
     render();
     try {
-      const res = await fetch('api/precos?municipio=CUIABA&uf=MT&semanas=todas', { signal: AbortSignal.timeout(180000) });
+      const res = await fetch('api/precos?uf=MT&semanas=todas', { signal: AbortSignal.timeout(180000) });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const j = await res.json();
       if (!Array.isArray(j.registros)) throw new Error('resposta sem registros');
@@ -184,7 +213,8 @@
     const vehicle = (typeof VEHICLES !== 'undefined' ? VEHICLES[state.vehicle] : null) || { name: 'Padrão', tank: 50 };
     const tank = vehicle.tank;
 
-    const rows = state.stations.map(s => {
+    const stations = state.city ? state.stations.filter(s => s.city === state.city) : state.stations;
+    const rows = stations.map(s => {
       const cnpj = s.id.slice(4);
       const doPosto = state.prices[cnpj];
       const p = doPosto?.[fuel.id];
@@ -193,6 +223,7 @@
       const price = p?.preco ?? null;
       return {
         ...s,
+        cityTag: state.city ? '' : s.cityLabel, // com as duas cidades na tela, cada posto diz de qual é
         price,
         flex,
         full: price != null ? price * tank : null,
@@ -237,13 +268,41 @@
 
     if (state.hideNoPrice) ranked = ranked.filter(r => r.price != null);
 
-    const trend = Calc.tendenciaSemana(state.registros, TREND_PRODUCT[fuel.id]);
+    const daCidade = state.city ? state.registros.filter(r => plain(r.municipio) === plain(state.city)) : state.registros;
+    const trend = Calc.tendenciaSemana(daCidade, TREND_PRODUCT[fuel.id]);
 
     return { rows: ranked, best, fuel, vehicle, vehicleIdx: state.vehicle, trend };
   }
 
+  const placeLabel = () => CITIES.find(c => c.id === state.city)?.label || CITIES.map(c => c.label).join(' e ');
+
+  // Botão de cidade (no mapa e na lista) e o menu que ele abre
+  function renderCityControls() {
+    const label = document.getElementById('mapCityLabel');
+    if (label) label.textContent = placeLabel();
+    const menu = document.getElementById('cityMenu');
+    if (menu) {
+      const opcoes = [{ id: '', label: 'Cuiabá e Várzea Grande' }, ...CITIES];
+      menu.innerHTML = opcoes.map(c =>
+        `<button type="button" role="menuitemradio" data-city="${c.id}" aria-checked="${c.id === state.city}">${UI.icon('check')}<span>${UI.esc(c.label)}</span></button>`
+      ).join('');
+    }
+  }
+
+  function setCity(id) {
+    state.city = CITIES.some(c => c.id === id) ? id : '';
+    state.activeId = null;
+    savePrefs();
+    render();
+    const c = CITIES.find(x => x.id === state.city);
+    if (c) MapView.focusLocation(c.lat, c.lng, 13);
+    else MapView.focusLocation((CITIES[0].lat + CITIES[1].lat) / 2, (CITIES[0].lng + CITIES[1].lng) / 2, 12);
+  }
+
   function render() {
     const { rows, best, fuel, vehicle, vehicleIdx, trend } = compute();
+    const place = placeLabel();
+    renderCityControls();
 
     MapView.renderMarkers(rows, best?.id, state.activeId, brl);
 
@@ -261,6 +320,7 @@
         vehicles: typeof VEHICLES !== 'undefined' ? VEHICLES : [],
         onVehicleChange: setVehicle,
         userPos: state.userPos,
+        place,
         brlFormatter: brl,
         numFormatter: num
       });
@@ -270,7 +330,7 @@
     renderMapStatus(rows.length, fuel);
 
     // Aviso da tendência: depois de fechado, só volta quando a ANP publicar outra semana
-    const notice = trend && (store.get(TREND_KEY) || {})[fuel.id] !== state.pricesWeekId ? UI.trendNotice(trend, fuel.label, brl) : '';
+    const notice = trend && (store.get(TREND_KEY) || {})[fuel.id] !== state.pricesWeekId ? UI.trendNotice(trend, fuel.label, brl, place) : '';
     const mapNotice = document.getElementById('mapNotice');
     if (mapNotice) mapNotice.innerHTML = notice;
 
@@ -289,6 +349,7 @@
       brlFormatter: brl,
       numFormatter: num,
       week: state.pricesWeek,
+      place,
       notice,
       sort: state.sort,
       hideNoPrice: state.hideNoPrice,
@@ -425,7 +486,10 @@
   }
 
   function start() {
-    state.stations = ANP_SNAPSHOT.map(r => normalizeStation(...r)).filter(Boolean);
+    state.stations = [
+      ...ANP_SNAPSHOT.map(r => normalizeStation(...r, CITIES[0])),
+      ...ANP_SNAPSHOT_VG.map(r => normalizeStation(...r, CITIES[1]))
+    ].filter(Boolean);
 
     MapView.init('map', station => {
       state.activeId = station.id;
@@ -501,6 +565,7 @@
     });
 
     bindCarDialog();
+    bindCityMenu();
 
     document.getElementById('floatingGpsBtn')?.addEventListener('click', () => {
       requestLocation(true);
@@ -523,7 +588,7 @@
     });
 
     document.getElementById('top10QuickBtn')?.addEventListener('click', () => {
-      Modals.abrirTop10(state.fuel);
+      Modals.abrirTop10(state.fuel, state.city, placeLabel());
     });
 
     // No desktop a lista fica ao lado do mapa: ao cruzar essa largura o mapa muda de tamanho
