@@ -5,6 +5,7 @@ const Modals = (() => {
   const modalTop10 = document.getElementById('modalTop10');
   const modalTabela = document.getElementById('modalTabela');
   let top10Periodo = '4';
+  let top10Fuel = 'gasolina'; // 'gasolina' | 'etanol' | 'diesel'
   let top10Seq = 0;
   let tabSeq = 0;
   let tabTimer = null;
@@ -30,6 +31,17 @@ const Modals = (() => {
   const dataBr = isoDate => String(isoDate || '').split('-').reverse().join('/');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  function getVehicle() {
+    try {
+      const raw = localStorage.getItem('combustivel_certo_prefs');
+      const p = raw ? JSON.parse(raw) : {};
+      const idx = typeof p.vehicle === 'number' ? p.vehicle : 1;
+      if (typeof window !== 'undefined' && window.VEHICLES && window.VEHICLES[idx]) return window.VEHICLES[idx];
+      if (typeof VEHICLES !== 'undefined' && VEHICLES[idx]) return VEHICLES[idx];
+    } catch (_) {}
+    return (typeof VEHICLES !== 'undefined' ? VEHICLES[1] : null) || { name: 'Padrão', tank: 50 };
+  }
+
   function grafLinha(pts, x, y, larg) {
     const meio = GRAF.alt / 2;
     const xy = pts.map(p => [x(p.dataColeta), y(p.preco)]);
@@ -54,6 +66,26 @@ const Modals = (() => {
       }
     });
 
+    // Abas de combustível do Top 10 (Gasolina, Etanol, Diesel S10)
+    document.getElementById('top10FuelTabs')?.addEventListener('click', e => {
+      const b = e.target.closest('[data-top10-fuel]');
+      if (!b) return;
+      top10Fuel = b.dataset.top10Fuel;
+      document.querySelectorAll('.top10-fuel-btn').forEach(btn => {
+        const ativo = btn.dataset.top10Fuel === top10Fuel;
+        btn.classList.toggle('bg-amber-400', ativo);
+        btn.classList.toggle('text-slate-950', ativo);
+        btn.classList.toggle('shadow-sm', ativo);
+        btn.classList.toggle('ring-1', ativo);
+        btn.classList.toggle('ring-amber-300', ativo);
+        btn.classList.toggle('font-extrabold', ativo);
+        btn.classList.toggle('bg-slate-800/80', !ativo);
+        btn.classList.toggle('text-slate-200', !ativo);
+        btn.classList.toggle('font-bold', !ativo);
+      });
+      loadTop10();
+    });
+
     // Filtros de período do Top 10
     document.getElementById('top10PeriodoBtns')?.addEventListener('click', e => {
       const b = e.target.closest('[data-top10-periodo]');
@@ -62,11 +94,11 @@ const Modals = (() => {
       document.querySelectorAll('.top10-p-btn').forEach(btn => {
         const ativo = btn.dataset.top10Periodo === top10Periodo;
         btn.classList.toggle('bg-white', ativo);
-        btn.classList.toggle('text-emerald-950', ativo);
-        btn.classList.toggle('shadow-sm', ativo);
-        btn.classList.toggle('font-bold', ativo);
-        btn.classList.toggle('text-emerald-800', !ativo);
-        btn.classList.toggle('font-semibold', !ativo);
+        btn.classList.toggle('text-[#0e7048]', ativo);
+        btn.classList.toggle('shadow-2xs', ativo);
+        btn.classList.toggle('font-extrabold', ativo);
+        btn.classList.toggle('text-slate-600', !ativo);
+        btn.classList.toggle('font-bold', !ativo);
       });
       loadTop10();
     });
@@ -187,10 +219,17 @@ const Modals = (() => {
     boxGrafico.style.opacity = '0.5';
     boxCards.style.opacity = '0.5';
 
+    const PRODUTO_MAP = {
+      gasolina: 'GASOLINA COMUM',
+      etanol: 'ETANOL',
+      diesel: 'DIESEL S10'
+    };
+    const produto = PRODUTO_MAP[top10Fuel] || 'GASOLINA COMUM';
+
     const params = new URLSearchParams({
       municipio: 'CUIABA',
       uf: 'MT',
-      combustivel: 'GASOLINA COMUM',
+      combustivel: produto,
       semanas: top10Periodo
     });
 
@@ -227,7 +266,8 @@ const Modals = (() => {
       const top = series.sort((a, b) => fim(a).preco - fim(b).preco || fim(b).dataColeta.localeCompare(fim(a).dataColeta) || fim(a).razao.localeCompare(fim(b).razao)).slice(0, 10);
 
       if (!top.length) {
-        boxGrafico.innerHTML = '<p class="py-6 text-center text-sm text-slate-500 font-medium">Nenhum registro de Gasolina Comum encontrado neste período.</p>';
+        const labelCombustivel = PRODUTO_MAP[top10Fuel] || 'Combustível';
+        boxGrafico.innerHTML = `<p class="py-6 text-center text-sm text-slate-500 font-medium">Nenhum registro de ${esc(labelCombustivel)} encontrado neste período.</p>`;
         boxCards.innerHTML = '';
         if (boxMetrics) boxMetrics.innerHTML = '';
         boxGrafico.style.opacity = '1';
@@ -248,13 +288,13 @@ const Modals = (() => {
 
       if (boxMetrics) {
         boxMetrics.innerHTML = `
-          <div class="rounded-2xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-800 text-white p-4 sm:p-5 shadow-sm border border-emerald-700/40 ring-1 ring-amber-400/20">
-            <div class="text-[10px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-              <i data-lucide="trophy" class="w-3.5 h-3.5 text-amber-400"></i>
+          <div class="rounded-2xl bg-[#091e26] text-white p-4 sm:p-5 shadow-sm border border-slate-800">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-[#f5b723] flex items-center gap-1.5">
+              <i data-lucide="trophy" class="w-3.5 h-3.5 text-[#f5b723]"></i>
               <span>Campeão do Menor Preço</span>
             </div>
-            <div class="mt-1 text-2xl font-black tabular-nums tracking-tight">${precoTabela(menorAtual)}</div>
-            <div class="text-xs text-emerald-200/90 truncate mt-0.5 font-medium">${esc(fim(top[0]).fantasia || fim(top[0]).razao)}</div>
+            <div class="mt-1 text-2xl font-black tabular-nums tracking-tight text-white">${precoTabela(menorAtual)}</div>
+            <div class="text-xs text-slate-300 truncate mt-0.5 font-medium">${esc(fim(top[0]).fantasia || fim(top[0]).razao)}</div>
           </div>
           <div class="rounded-2xl bg-white border border-slate-200/90 p-4 sm:p-5 shadow-2xs">
             <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Preço Médio do Top 10</div>
@@ -290,7 +330,7 @@ const Modals = (() => {
           </div>
           ${grafLinha(pts, x, y, larg)}
           <div class="w-20 sm:w-36 shrink-0 text-right">
-            <div class="text-xs sm:text-sm font-black text-emerald-800">${precoTabela(b.preco)}</div>
+            <div class="text-xs sm:text-sm font-black text-[#0e7048]">${precoTabela(b.preco)}</div>
             <div class="text-[10px] sm:text-[11px] text-slate-500 font-medium">${variacao}</div>
           </div>
         </li>`;
@@ -305,6 +345,7 @@ const Modals = (() => {
         <ol>${linhasGrafico}</ol>
       `;
 
+      const veh = getVehicle();
       const medalhas = [
         '<i data-lucide="trophy" class="w-3 h-3 text-emerald-950 inline"></i> 1º Lugar',
         '<i data-lucide="medal" class="w-3 h-3 text-emerald-950 inline"></i> 2º Lugar',
@@ -312,26 +353,30 @@ const Modals = (() => {
       ];
       boxCards.innerHTML = top.map((pts, i) => {
         const b = fim(pts);
+        const isPrimeiro = i === 0;
         const isTop3 = i < 3;
-        const borderClass = i === 0
-          ? 'border-amber-400 ring-1 ring-amber-300/40 bg-gradient-to-br from-emerald-50/40 via-white to-amber-50/20 shadow-xs'
-          : 'border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs';
+        const borderClass = isPrimeiro
+          ? 'border-2 border-[#0e7048] ring-4 ring-[#0e7048]/10 bg-white shadow-md'
+          : 'border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs';
 
         const badgeMedal = isTop3
-          ? `<span class="rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-emerald-950 text-[10px] font-black px-2.5 py-0.5 border border-amber-400/80 shadow-2xs inline-flex items-center gap-1">${medalhas[i]}</span>`
+          ? `<span class="rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 text-[10px] font-black px-2.5 py-0.5 border border-amber-400/80 shadow-2xs inline-flex items-center gap-1">${medalhas[i]}</span>`
           : `<span class="rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5">#${i + 1}</span>`;
 
         const difPrimeiro = b.preco - menorAtual;
-        const difTxt = difPrimeiro === 0 ? '<span class="inline-flex items-center gap-1 text-emerald-700 font-bold"><i data-lucide="trophy" class="w-3 h-3 text-amber-500"></i>Menor preço</span>' : `+${precoTabela(difPrimeiro)} vs 1º lugar`;
+        const difTxt = difPrimeiro === 0 ? '<span class="inline-flex items-center gap-1 text-[#0e7048] font-bold"><i data-lucide="trophy" class="w-3 h-3 text-[#f5b723]"></i>Menor preço</span>' : `+${precoTabela(difPrimeiro)} vs 1º lugar`;
         const stationId = 'anp-' + b.cnpj;
 
+        const tanqueCheio = b.preco * veh.tank;
+        const meioTanque = tanqueCheio / 2;
+
         return `
-          <div class="rounded-2xl border ${borderClass} p-4 sm:p-5 flex flex-col justify-between transition hover:border-slate-300">
+          <div class="rounded-2xl ${borderClass} p-4 sm:p-5 flex flex-col justify-between transition hover:border-slate-300">
             <div>
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-1.5 flex-wrap">
                   ${badgeMedal}
-                  <span class="rounded-full bg-slate-100 text-slate-700 border border-slate-200/70 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">${esc(b.bandeira)}</span>
+                  <span class="rounded-full bg-slate-100 text-slate-700 border border-slate-200/70 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">${esc(b.bandeira || 'Branca')}</span>
                 </div>
                 <div class="text-right">
                   <div class="text-2xl font-black tabular-nums tracking-tight text-[#0e7048]">${precoTabela(b.preco)}</div>
@@ -340,12 +385,38 @@ const Modals = (() => {
               </div>
               <h4 class="mt-2 text-sm font-bold text-slate-900 leading-snug tracking-tight">${esc(b.fantasia || b.razao)}</h4>
               <p class="text-xs text-slate-500 mt-0.5 truncate">${esc([[b.endereco, b.numero].filter(Boolean).join(', '), b.bairro].filter(Boolean).join(' · '))}</p>
+
+              <!-- Simulação Tanque Cheio e Meio Tanque modelo do site -->
+              <div class="mt-3 pt-2.5 border-t border-slate-100 grid grid-cols-2 gap-2">
+                <div class="rounded-xl bg-emerald-50 border border-emerald-200/80 p-2 text-center">
+                  <div class="text-[10px] font-bold text-[#0e7048] uppercase tracking-wide flex items-center justify-center gap-1">
+                    <i data-lucide="fuel" class="w-3 h-3 text-[#0e7048]"></i>
+                    <span>Tanque (${veh.tank}L)</span>
+                  </div>
+                  <div class="text-sm font-black text-emerald-950 mt-0.5 tabular-nums">
+                    ${precoTabela(tanqueCheio)}
+                  </div>
+                </div>
+                <div class="rounded-xl bg-amber-50 border border-amber-200/80 p-2 text-center">
+                  <div class="text-[10px] font-bold text-amber-700 uppercase tracking-wide flex items-center justify-center gap-1">
+                    <i data-lucide="gauge" class="w-3 h-3 text-amber-600"></i>
+                    <span>Meio (${veh.tank / 2}L)</span>
+                  </div>
+                  <div class="text-sm font-black text-amber-950 mt-0.5 tabular-nums">
+                    ${precoTabela(meioTanque)}
+                  </div>
+                </div>
+              </div>
             </div>
+
             <div class="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-              <button data-focar-posto="${esc(stationId)}" class="rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 px-3 py-1.5 transition active:scale-95 cursor-pointer">Ver no mapa</button>
+              <button data-focar-posto="${esc(stationId)}" class="rounded-xl border border-emerald-900/20 bg-emerald-950/10 hover:bg-emerald-950/20 text-[#0e7048] text-xs font-bold px-3 py-1.5 transition active:scale-95 cursor-pointer flex items-center gap-1.5">
+                <i data-lucide="map" class="w-3.5 h-3.5 text-[#0e7048]"></i>
+                <span>Ver no mapa</span>
+              </button>
               <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((b.fantasia || b.razao) + ' Cuiaba')}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-emerald-950 text-xs font-bold text-white px-3.5 py-1.5 shadow-2xs hover:shadow-xs transition active:scale-95 cursor-pointer">
+                <i data-lucide="navigation" class="w-3.5 h-3.5 text-amber-300"></i>
                 <span>Traçar rota</span>
-                <span class="text-[11px] text-amber-300">→</span>
               </a>
             </div>
           </div>
@@ -535,7 +606,7 @@ const Modals = (() => {
           : 'Nenhuma semana importada ainda';
       }
 
-      tabOpcoes('tabCombustivel', j.filtros.combustiveis, 'Todos');
+      tabOpcoes('tabCombustivel', (j.filtros.combustiveis || []).filter(c => !c.toLowerCase().includes('gnv')), 'Todos');
       tabOpcoes('tabBairro', j.filtros.bairros, 'Todos');
       tabOpcoes('tabBandeira', j.filtros.bandeiras, 'Todas');
 

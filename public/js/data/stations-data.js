@@ -7,8 +7,7 @@ const ANP_SNAPSHOT_DATE = "12/10/2026";
 const FUELS = [
   { id: 'gasolina', label: 'Gasolina', shortLabel: 'Gasolina' },
   { id: 'etanol',   label: 'Etanol',   shortLabel: 'Etanol' },
-  { id: 'diesel',   label: 'Diesel S10', shortLabel: 'Diesel S10' },
-  { id: 'gnv',      label: 'GNV',      shortLabel: 'GNV' }
+  { id: 'diesel',   label: 'Diesel S10', shortLabel: 'Diesel S10' }
 ];
 
 const VEHICLES = [

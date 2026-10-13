@@ -615,7 +615,7 @@ const BottomSheet = (() => {
               ? `
             <div class="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
               <span class="text-slate-500">Menor preço da cidade: <strong>${formatBrl(bestStation.price)}</strong></span>
-              <button id="sheetBackToBestBtn" type="button" class="font-extrabold text-[#0e7048] hover:underline cursor-pointer">Ver menor preço &rarr;</button>
+              <button id="sheetBackToBestBtn" type="button" class="font-extrabold text-[#0e7048] hover:underline cursor-pointer">Ver menor preço</button>
             </div>
           `
               : ""

@@ -443,121 +443,143 @@
       </nav>
     </div>
 
-    <!-- ===================================================================
-         MODAL: 10 MAIS BARATOS (GASOLINA COMUM & RANKING)
+    <!-- =================================================    <!-- ===================================================================
+         MODAL: 10 MAIS BARATOS (RANKING OFICIAL DA ANP)
          =================================================================== -->
     <div
       id="modalTop10"
-      class="hidden fixed inset-0 z-[1000] bg-slate-950/60 backdrop-blur-sm items-center justify-center p-3.5 sm:p-6"
+      class="hidden fixed inset-0 z-[1000] bg-slate-950/60 backdrop-blur-sm items-center justify-center p-3 sm:p-5"
     >
       <div
-        class="w-full max-w-4xl max-h-[92vh] bg-white rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200"
+        class="w-full max-w-4xl max-h-[92vh] bg-slate-50 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200"
       >
-        <!-- Top Banner -->
-        <div
-          class="px-5 py-4 bg-gradient-to-r from-emerald-950 via-emerald-900 to-slate-900 text-white flex items-start justify-between gap-3 border-b border-amber-400/30"
-        >
-          <div class="min-w-0">
-            <div class="flex items-center gap-2 flex-wrap">
+        <!-- Topo Escuro (Padrão Identidade Visual do Site) -->
+        <header class="bg-[#091e26] text-white p-4 sm:p-5 shrink-0 border-b border-slate-800">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5 min-w-0">
               <img
                 src="assets/logo-icon.svg"
-                class="w-7 h-7 rounded-xl shadow-xs"
-                alt="Logo Combustível Certo"
+                class="w-8 h-8 rounded-xl shadow-md shrink-0"
+                alt="Combustível Certo"
               />
-              <h2
-                class="text-base sm:text-lg font-black tracking-tight text-white"
-              >
-                10 Mais Baratos · Gasolina Comum
-              </h2>
-              <span
-                class="rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] font-extrabold px-2.5 py-0.5 uppercase tracking-wider"
-                >Cuiabá / MT</span
-              >
+              <div class="min-w-0">
+                <div class="flex items-baseline font-black text-base sm:text-lg tracking-tight leading-none">
+                  <span class="text-white">Combustível</span>
+                  <span class="text-[#f5b723] ml-1.5">Certo</span>
+                </div>
+                <h2 class="text-xs sm:text-sm font-extrabold text-amber-400 mt-0.5 truncate">
+                  10 Mais Baratos · Ranking ANP
+                </h2>
+              </div>
             </div>
-            <p id="top10Meta" class="mt-1 text-xs text-slate-300 font-medium">
-              Pesquisa oficial semanal da ANP em Cuiabá-MT
-            </p>
-          </div>
-          <button
-            id="top10Close"
-            class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white text-lg flex items-center justify-center transition cursor-pointer"
-          >
-            &times;
-          </button>
-        </div>
 
-        <!-- Seletor de Período -->
-        <div
-          class="px-5 py-3 border-b border-slate-200 bg-slate-50/80 flex flex-wrap items-center justify-between gap-3"
-        >
-          <div class="flex items-center gap-2 text-xs">
-            <span class="font-bold text-slate-700">Histórico:</span>
-            <div
-              id="top10PeriodoBtns"
-              class="flex gap-1 p-1 rounded-xl bg-slate-200 text-xs font-semibold"
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                Cuiabá, MT
+              </span>
+              <button
+                id="top10Close"
+                type="button"
+                title="Fechar modal"
+                aria-label="Fechar modal"
+                class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition active:scale-95 cursor-pointer"
+              >
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Abas de Combustível do Top 10 (Gasolina, Etanol, Diesel S10 - SEM GNV!) -->
+          <div id="top10FuelTabs" class="flex items-center gap-2 mt-3.5 overflow-x-auto pb-0.5 scroll-thin">
+            <button
+              data-top10-fuel="gasolina"
+              class="top10-fuel-btn px-4 py-1.5 rounded-full font-extrabold text-xs transition cursor-pointer bg-amber-400 text-slate-950 shadow-sm ring-1 ring-amber-300"
             >
+              Gasolina
+            </button>
+            <button
+              data-top10-fuel="etanol"
+              class="top10-fuel-btn px-4 py-1.5 rounded-full font-bold text-xs transition cursor-pointer bg-slate-800/80 text-slate-200 hover:bg-slate-700/80"
+            >
+              Etanol
+            </button>
+            <button
+              data-top10-fuel="diesel"
+              class="top10-fuel-btn px-4 py-1.5 rounded-full font-bold text-xs transition cursor-pointer bg-slate-800/80 text-slate-200 hover:bg-slate-700/80"
+            >
+              Diesel S10
+            </button>
+          </div>
+        </header>
+
+        <!-- Sub-barra: Período e Link da Tabela -->
+        <div class="px-4 sm:px-5 py-2.5 border-b border-slate-200 bg-white flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+          <div class="flex items-center gap-2 text-xs">
+            <span class="font-extrabold text-slate-600">Período:</span>
+            <div id="top10PeriodoBtns" class="flex gap-1 p-0.5 rounded-xl bg-slate-100 text-xs font-bold border border-slate-200">
               <button
                 data-top10-periodo="4"
-                class="top10-p-btn rounded-lg px-3 py-1 bg-white text-emerald-950 shadow-sm font-bold cursor-pointer"
+                class="top10-p-btn rounded-lg px-2.5 py-1 bg-white text-[#0e7048] shadow-2xs font-extrabold cursor-pointer transition"
               >
                 4 semanas
               </button>
               <button
                 data-top10-periodo="todas"
-                class="top10-p-btn rounded-lg px-3 py-1 text-slate-600 font-semibold cursor-pointer"
+                class="top10-p-btn rounded-lg px-2.5 py-1 text-slate-600 font-bold hover:text-slate-900 cursor-pointer transition"
               >
-                Todo histórico
+                Histórico completo
               </button>
             </div>
           </div>
           <button
             id="top10VerTabelaGeral"
-            class="text-xs font-bold text-emerald-800 hover:text-emerald-950 underline cursor-pointer"
+            type="button"
+            class="text-xs font-bold text-[#0e7048] hover:text-[#095436] hover:underline cursor-pointer flex items-center gap-1"
           >
-            Ver tabela completa de todos os combustíveis
+            <span>Ver tabela completa</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
           </button>
         </div>
 
         <!-- Conteúdo com Gráfico e Cards -->
-        <div
-          class="flex-1 min-h-0 overflow-y-auto scroll-thin p-5 space-y-4 bg-slate-50/60"
-        >
+        <div class="flex-1 min-h-0 overflow-y-auto scroll-thin p-4 sm:p-5 space-y-4">
           <p
             id="top10Aviso"
             class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs text-amber-900 font-medium"
           ></p>
+          <p id="top10Meta" class="text-xs text-slate-500 font-medium"></p>
           <div
             id="top10Metrics"
             class="grid grid-cols-1 sm:grid-cols-3 gap-3"
           ></div>
           <div
-            class="rounded-2xl bg-white border border-slate-200/90 p-4 shadow-sm"
+            class="rounded-2xl bg-white border border-slate-200/90 p-4 sm:p-5 shadow-xs"
           >
             <div
               class="flex items-center justify-between pb-3 border-b border-slate-100"
             >
               <h3
-                class="text-sm font-black text-slate-900 flex items-center gap-2"
+                class="text-sm font-extrabold text-slate-900 flex items-center gap-2"
               >
                 <i
                   data-lucide="trending-up"
-                  class="w-4 h-4 text-emerald-700"
+                  class="w-4 h-4 text-[#0e7048]"
                 ></i>
-                <span>Variação de Preço dos 10 Postos</span>
+                <span>Histórico de Variação</span>
               </h3>
               <div
                 id="top10FaixaPreco"
-                class="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60"
+                class="text-xs font-bold text-[#0e7048] bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60"
               ></div>
             </div>
             <div id="top10GraficoBox" class="pt-3"></div>
           </div>
           <div>
             <h3
-              class="text-sm font-black text-slate-900 mb-3 flex items-center gap-2"
+              class="text-sm font-extrabold text-slate-900 mb-3 flex items-center gap-2"
             >
-              <i data-lucide="fuel" class="w-4 h-4 text-emerald-700"></i>
-              <span>Ranking Oficial dos Postos Mais Baratos</span>
+              <i data-lucide="award" class="w-4 h-4 text-[#0e7048]"></i>
+              <span>Os 10 Postos Mais Baratos</span>
             </h3>
             <div
               id="top10Cards"
