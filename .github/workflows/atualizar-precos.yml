@@ -1,0 +1,84 @@
+name: Atualizar preços da ANP
+
+# Busca a pesquisa semanal de preços da ANP e, se houver semana nova, abre um PR com data/precos.json
+# para revisão. Nada entra na main sem aprovação; ao aceitar o PR, o Vercel republica o site.
+
+on:
+  schedule:
+    # Todo dia às 08:00 de Cuiabá (12:00 UTC). A ANP publica a semana alguns dias depois de ela terminar,
+    # sem dia fixo; quando não há planilha nova, a rotina termina sem fazer nada.
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+    inputs:
+      semanas:
+        description: Quantas das semanas mais recentes verificar
+        default: "4"
+      forcar:
+        description: Baixar de novo as semanas que já estão na base
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: atualizar-precos
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Guardar a base atual para comparar
+        run: cp data/precos.json "$RUNNER_TEMP/precos-antes.json"
+
+      - name: Buscar os preços na ANP
+        env:
+          SEMANAS: ${{ inputs.semanas || '4' }}
+          FORCAR: ${{ inputs.forcar && '--forcar' || '' }}
+        run: node scripts/atualizar-precos.js --semanas="$SEMANAS" $FORCAR
+
+      - name: Resumir o que mudou
+        id: resumo
+        run: |
+          node scripts/resumo-coleta.js "$RUNNER_TEMP/precos-antes.json" data/precos.json > "$RUNNER_TEMP/resumo.md"
+          cat "$RUNNER_TEMP/resumo.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Testes
+        if: steps.resumo.outputs.mudou == 'true'
+        run: npm test
+
+      - name: Abrir o PR com os dados novos
+        if: steps.resumo.outputs.mudou == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SEMANA: ${{ steps.resumo.outputs.semana }}
+          TITULO: ${{ steps.resumo.outputs.titulo }}
+          # Os commits saem no nome do dono do repositório
+          AUTOR_NOME: ${{ github.repository_owner }}
+          AUTOR_EMAIL: ${{ github.repository_owner_id }}+${{ github.repository_owner }}@users.noreply.github.com
+        run: |
+          export RAMO="dados/precos-$SEMANA"
+          if git ls-remote --exit-code --heads origin "$RAMO" > /dev/null; then
+            echo "Já existe um PR aberto para esta semana ($RAMO). Nada a fazer." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "$AUTOR_NOME"
+          git config user.email "$AUTOR_EMAIL"
+          git switch -c "$RAMO"
+          git add data/precos.json
+          git commit -m "$TITULO"
+          git push origin "$RAMO"
+          gh pr create --base "${{ github.event.repository.default_branch }}" --head "$RAMO" --title "$TITULO" --body-file "$RUNNER_TEMP/resumo.md"
+          # Um PR de semana anterior ainda aberto fica sem sentido: o novo já traz os dados dele
+          for n in $(gh pr list --state open --json number,headRefName --jq '.[] | select(.headRefName | startswith("dados/precos-")) | select(.headRefName != env.RAMO) | .number'); do
+            gh pr close "$n" --delete-branch --comment "Substituído pelo PR da semana mais recente, que inclui estes dados."
+          done
