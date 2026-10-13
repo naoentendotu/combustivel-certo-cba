@@ -24,17 +24,18 @@ test('encontra a planilha mais recente pela semana de referência, não pela pos
   assert.ok(lista.every(p => !/resumo_semanal/.test(p.url)), 'não deve pegar a planilha de preços médios');
 });
 
-test('filtro retorna somente Cuiabá/MT, tolerando acento, caixa e espaços', () => {
+test('filtro retorna somente Cuiabá e Várzea Grande/MT, tolerando acento, caixa e espaços', () => {
   const { registros } = precos.lerPlanilha(planilhaAnp({ linhas: [
     { municipio: 'CUIABA', produto: 'GASOLINA COMUM' },
     { municipio: '  Cuiabá ', estado: 'Mato Grosso', produto: 'ETANOL' },
     { municipio: 'cuiaba', estado: 'MT', produto: 'DIESEL S10' },
-    { municipio: 'VARZEA GRANDE', produto: 'GLP' },
+    { municipio: ' Várzea Grande', estado: 'mt', produto: 'GLP' },
+    { municipio: 'VARZEA GRANDE', estado: 'SAO PAULO', produto: 'GNV' },
     { municipio: 'SANTO ANTONIO DO LEVERGER', produto: 'GNV' },
     { municipio: 'CUIABA', estado: 'MATO GROSSO DO SUL', produto: 'DIESEL S500' },
     { municipio: 'CUIABA PAULISTA', estado: 'MATO GROSSO', produto: 'GASOLINA ADITIVADA' }
   ] }));
-  assert.deepEqual(registros.map(r => r.produto).sort(), ['DIESEL S10', 'ETANOL', 'GASOLINA COMUM']);
+  assert.deepEqual(registros.map(r => r.produto).sort(), ['DIESEL S10', 'ETANOL', 'GASOLINA COMUM', 'GLP']);
   assert.ok(registros.every(r => r.uf === 'MT'));
 });
 
@@ -202,7 +203,11 @@ test('API /api/precos devolve os dados e aplica os filtros', async t => {
   assert.deepEqual((await api('/api/precos?semanas=todas&coletaDe=2026-09-01&coletaAte=2026-09-30')).body.registros.map(r => r.dataColeta), ['2026-09-29', '2026-09-29']);
   assert.equal((await api('/api/precos?combustivel=GLP')).body.total, 0);
 
-  assert.equal((await api('/api/precos?municipio=VARZEA%20GRANDE&uf=MT')).status, 400);
+  const vg = await api('/api/precos?municipio=VARZEA%20GRANDE&uf=MT');
+  assert.equal(vg.status, 200);
+  assert.equal(vg.body.total, 0, 'a base de teste só tem Cuiabá');
+  assert.equal((await api('/api/precos?semanas=todas&municipio=CUIABA,VARZEA%20GRANDE')).body.total, 5);
+  assert.equal((await api('/api/precos?municipio=SINOP&uf=MT')).status, 400);
   assert.equal((await api('/api/precos?precoMin=abc')).status, 400);
   assert.equal((await api('/api/precos?coletaDe=10/10/2026')).status, 400);
 
