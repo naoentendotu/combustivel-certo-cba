@@ -16,13 +16,12 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 - Traçado de rota direto no Google Maps.
 
 ### Principais funcionalidades
-- **Mapa Interativo (Página Inicial):** Visualização geoespacial dos postos em Cuiabá usando Leaflet, com pins destacando o menor preço, aviso de dados desatualizados e raio de alcance do usuário.
-- **Drawer Inferior (Bottom Sheet):** Painel expansível com gestos de toque (touch drag) no celular:
-  - Modo recolhido: exibe o posto com menor preço, distância e botão rápido de rota.
-  - Modo expandido: permite ordenar por *Menor preço* ou *Mais perto*, com paginação de 10 em 10 postos.
-- **Visão Lista:** Listagem paginada alternativa com seletor de combustíveis, hero card do menor preço e cálculo de economia versus média.
-- **Visão Dados ANP:** Tabela completa de preços com filtros por combustível, bairro, bandeira, período e faixa de preço. Responsiva: exibe cards confortáveis no celular e tabela estruturada no desktop.
-- **Modal 10 Mais Baratos:** Estatísticas consolidadas, campeão do menor preço, variação de preços e gráfico comparativo das últimas semanas.
+- **Mapa (tela inicial):** cada posto é um marcador com o preço. O menor preço fica em verde cheio; o terço mais barato aparece em verde e o terço mais caro, apagado. Preço fora da última semana pesquisada vem em âmbar com ícone de atenção.
+- **Painel do mapa:** no celular é uma folha inferior com o posto selecionado (preço, data da coleta, custo do tanque e rota) que abre para a lista; no desktop a lista fica fixa ao lado do mapa. Filtros: *Menor preço*, *Mais perto* e *Ocultar sem preço* (ligado por padrão).
+- **Lista:** o menor preço do momento em destaque, com a diferença para a média, e todos os postos em ordem, cada um com a data da coleta.
+- **Pesquisa:** todos os registros da ANP com filtros por combustível, bairro, bandeira, período, faixa de preço e datas. Lista no celular, tabela em telas largas.
+- **10 mais baratos:** ranking com a variação de preço de cada posto nas últimas 4 semanas ou em todo o histórico. Tocar num posto leva ao mapa.
+- **Estados:** carregamento, erro (com "Tentar de novo") e vazio explicados no mapa, na lista, na pesquisa e no ranking.
 
 ### Fonte de dados e limitações
 1. **Cadastro dos postos:** Obtido via API de Revendedores da ANP (`/api/anp`), mapeado com coordenadas geográficas de Cuiabá.
@@ -43,8 +42,8 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 
 ### Frontend
 - **HTML5 Semântico:** Estrutura acessível com metatags responsivas.
-- **CSS Customizado (`public/css/app.css`):** Design system com paleta oficial verde floresta (`#0e7048`) e dourado (`#f5b723`), pins Leaflet, animações e layout fluido.
-- **Tailwind CSS (CDN):** Utilitários de layout e tipografia.
+- **CSS próprio (`public/css/app.css`):** design system em variáveis CSS (cores, raios, sombras, tipografia) e componentes. Sem framework de CSS.
+- **Tipografia:** Barlow para texto e Barlow Semi Condensed para preços, via Google Fonts.
 - **Leaflet (1.9.4 CDN):** Renderização de mapas e camadas interativas.
 - **Lucide Icons (CDN):** Ícones vetoriais em substituição a emojis e caracteres Unicode.
 
@@ -73,11 +72,12 @@ combustivel-certo/
 │   ├── js/
 │   │   ├── app.js           # Orquestrador central e gerenciador de estado da aplicação
 │   │   ├── components/
-│   │   │   ├── bottom-sheet.js  # Drawer inferior expansível do mapa com paginação
+│   │   │   ├── ui.js            # Peças compartilhadas: linha de posto, paginação, data da coleta, avisos
+│   │   │   ├── bottom-sheet.js  # Painel do mapa: folha inferior no celular, coluna fixa no desktop
 │   │   │   ├── list-view.js     # Tela de lista mobile com menor preço em destaque
 │   │   │   ├── map-view.js      # Integração com Leaflet, pins e geolocalização
 │   │   │   ├── modals.js        # Modal do ranking Top 10 e tela de dados ANP
-│   │   │   └── nav.js           # Barra de navegação inferior fixa (Lista, Mapa, Dados)
+│   │   │   └── nav.js           # Navegação: barra inferior no celular, lateral no desktop
 │   │   └── data/
 │   │       └── stations-data.js # Base geoespacial local de postos de Cuiabá (fallback)
 │   └── index.html           # Aplicação web principal de página única
