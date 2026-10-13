@@ -210,7 +210,7 @@ html, body {
    -------------------------------------------------------------------------- */
 .floating-gps-btn {
   position: absolute;
-  bottom: 215px; /* Posicionado acima do card recolhido, perfeitamente alinhado */
+  bottom: 325px; /* Posicionado acima do card recolhido, perfeitamente alinhado */
   right: 16px;
   z-index: 450;
   width: 48px;
@@ -273,7 +273,7 @@ html, body {
   overflow: hidden;
   touch-action: pan-y;
   transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
-  max-height: 200px;
+  max-height: 310px;
   min-height: 70px;
 }
 

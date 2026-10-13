@@ -15,6 +15,12 @@ const BottomSheet = (() => {
   let currentUserPos = null;
   let currentPage = 1;
   const PAGE_SIZE = 10;
+  let currentVehicleIdx = 1;
+  let currentVehicle = (typeof VEHICLES !== "undefined" ? VEHICLES[1] : null) || {
+    name: "Hyundai HB20",
+    tank: 50,
+  };
+  let allVehicles = typeof VEHICLES !== "undefined" ? VEHICLES : [];
 
   let formatBrl = (n) =>
     n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -28,10 +34,11 @@ const BottomSheet = (() => {
   let onSelectStationCb = null;
   let onSortChangeCb = null;
   let onRequestGpsCb = null;
+  let onVehicleChangeCb = null;
 
   // Variáveis para rastreamento de gestos touch
   let touchStartY = 0;
-  let touchStartTime = 0;
+  touchStartTime = 0;
   let isDraggingHandle = false;
 
   function init({
@@ -40,12 +47,14 @@ const BottomSheet = (() => {
     onSelectStation,
     onSortChange,
     onRequestGps,
+    onVehicleChange,
   }) {
     container = document.getElementById(containerId);
     backdrop = document.getElementById(backdropId);
     onSelectStationCb = onSelectStation;
     onSortChangeCb = onSortChange;
     onRequestGpsCb = onRequestGps;
+    onVehicleChangeCb = onVehicleChange;
 
     if (!container) return;
 
@@ -122,6 +131,10 @@ const BottomSheet = (() => {
     rows,
     sort,
     fuel,
+    vehicle,
+    vehicleIdx,
+    vehicles,
+    onVehicleChange,
     userPos,
     brlFormatter,
     numFormatter,
@@ -137,6 +150,10 @@ const BottomSheet = (() => {
       currentFuel = fuel;
       currentPage = 1;
     }
+    if (vehicle) currentVehicle = vehicle;
+    if (vehicleIdx !== undefined) currentVehicleIdx = vehicleIdx;
+    if (vehicles) allVehicles = vehicles;
+    if (onVehicleChange) onVehicleChangeCb = onVehicleChange;
     if (userPos !== undefined) currentUserPos = userPos;
     if (brlFormatter) formatBrl = brlFormatter;
     if (numFormatter) formatNum = numFormatter;
@@ -199,6 +216,7 @@ const BottomSheet = (() => {
   // ---------------------------------------------------------------------------
   function renderCollapsed() {
     const station = activeStation || bestStation;
+    if (!station) return;
     const isBest = bestStation && station.id === bestStation.id;
 
     const routeUrl =
@@ -217,6 +235,14 @@ const BottomSheet = (() => {
       ? currentFuel.label || currentFuel.shortLabel || currentFuel.name
       : "Combustível";
 
+    const tank = currentVehicle?.tank || 50;
+    const fullPrice = station.full != null ? station.full : (station.price != null ? station.price * tank : null);
+    const halfPrice = station.half != null ? station.half : (fullPrice != null ? fullPrice / 2 : null);
+
+    const vehicleOptions = allVehicles.map((v, i) =>
+      `<option value="${i}" ${i === currentVehicleIdx ? 'selected' : ''}>${v.name} (${v.tank}L)</option>`
+    ).join("");
+
     const bestBadge = isBest
       ? `<span class="px-2.5 py-1 rounded-full bg-[#0e7048] text-white font-black text-[10px] tracking-wide uppercase shadow-sm flex items-center gap-1.5"><i data-lucide="star" class="w-3 h-3 fill-amber-300 text-amber-300"></i><span>Menor preço · ${fuelName}</span></span>`
       : `<span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px] uppercase">${station.brand}</span>`;
@@ -233,7 +259,7 @@ const BottomSheet = (() => {
 
       <div class="px-5 pb-4 pt-1.5">
         <!-- Linha Superior: Tags e Distância -->
-        <div class="flex items-center justify-between gap-2 mb-2">
+        <div class="flex items-center justify-between gap-2 mb-1.5">
           <div class="flex items-center gap-1.5 flex-wrap">
             ${bestBadge}
             ${station.gnv ? '<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[10px]">GNV</span>' : ""}
@@ -242,10 +268,10 @@ const BottomSheet = (() => {
         </div>
 
         <!-- Linha Central: Nome, Endereço e Preço Grande -->
-        <div class="flex items-baseline justify-between gap-3 mt-1.5">
+        <div class="flex items-baseline justify-between gap-3">
           <div class="min-w-0 flex-1">
             <h3 class="text-base font-extrabold text-slate-900 leading-tight truncate">${station.name}</h3>
-            <p class="text-xs text-slate-500 truncate mt-1">${station.brand} · ${station.address}</p>
+            <p class="text-xs text-slate-500 truncate mt-0.5">${station.brand} · ${station.address}</p>
           </div>
           <div class="text-right shrink-0">
             <div class="text-2xl sm:text-3xl font-black text-slate-900 tabular-nums leading-none">${priceText}</div>
@@ -256,7 +282,7 @@ const BottomSheet = (() => {
         ${
           station.stale
             ? `
-          <div class="mt-2.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-900 flex items-center gap-2">
+          <div class="mt-2 px-3 py-1 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-900 flex items-center gap-2">
             <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-700 shrink-0"></i>
             <span class="truncate">Preço coletado em ${station.priceDate} (sem visita recente da ANP)</span>
           </div>
@@ -264,8 +290,46 @@ const BottomSheet = (() => {
             : ""
         }
 
+        <!-- Seletor de Carro & Simulação de Tanque -->
+        <div class="mt-2.5 pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <div class="flex items-center gap-1.5 text-xs font-extrabold text-slate-700 min-w-0">
+              <i data-lucide="car" class="w-3.5 h-3.5 text-[#0e7048] shrink-0"></i>
+              <span class="truncate">Veículo:</span>
+            </div>
+            <select
+              id="sheetPeekVehicleSel"
+              class="text-xs font-bold bg-slate-100 hover:bg-slate-200/80 text-slate-800 border border-slate-200 rounded-lg px-2 py-1 outline-none cursor-pointer max-w-[210px] truncate"
+            >
+              ${vehicleOptions}
+            </select>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div class="rounded-xl bg-emerald-50/80 border border-emerald-200/80 px-2.5 py-1.5 text-center">
+              <div class="text-[10px] font-bold text-[#0e7048] uppercase tracking-wide flex items-center justify-center gap-1">
+                <i data-lucide="fuel" class="w-3 h-3 text-[#0e7048]"></i>
+                <span>Tanque cheio (${tank}L)</span>
+              </div>
+              <div class="text-sm sm:text-base font-black text-emerald-950 mt-0.5 tabular-nums">
+                ${fullPrice != null ? formatBrl(fullPrice) : "—"}
+              </div>
+            </div>
+
+            <div class="rounded-xl bg-amber-50/80 border border-amber-200/80 px-2.5 py-1.5 text-center">
+              <div class="text-[10px] font-bold text-amber-700 uppercase tracking-wide flex items-center justify-center gap-1">
+                <i data-lucide="gauge" class="w-3 h-3 text-amber-600"></i>
+                <span>Meio tanque (${tank / 2}L)</span>
+              </div>
+              <div class="text-sm sm:text-base font-black text-amber-950 mt-0.5 tabular-nums">
+                ${halfPrice != null ? formatBrl(halfPrice) : "—"}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Botões de Ação Inferiores -->
-        <div class="mt-3.5 flex items-center gap-2">
+        <div class="mt-3 flex items-center gap-2">
           <a
             href="${routeUrl}"
             target="_blank"
@@ -282,6 +346,7 @@ const BottomSheet = (() => {
             class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-slate-200"
           >
             <i data-lucide="list" class="w-3.5 h-3.5 text-slate-600"></i>
+            <span class="hidden sm:inline">Ver todos</span>
           </button>
         </div>
       </div>
@@ -294,6 +359,20 @@ const BottomSheet = (() => {
     container
       .querySelector("#sheetExpandBtn")
       ?.addEventListener("click", () => expand());
+
+    const peekVehicleSel = container.querySelector("#sheetPeekVehicleSel");
+    if (peekVehicleSel) {
+      peekVehicleSel.addEventListener("click", (e) => e.stopPropagation());
+      peekVehicleSel.addEventListener("change", (e) => {
+        e.stopPropagation();
+        const idx = parseInt(e.target.value, 10);
+        if (!isNaN(idx) && typeof onVehicleChangeCb === "function") {
+          currentVehicleIdx = idx;
+          if (allVehicles[idx]) currentVehicle = allVehicles[idx];
+          onVehicleChangeCb(idx);
+        }
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -331,6 +410,7 @@ const BottomSheet = (() => {
     const pageRows = sortedRows.slice(startIdx, endIdx);
 
     const station = activeStation || bestStation;
+    if (!station) return;
     const isBest = bestStation && station.id === bestStation.id;
 
     const routeUrl =
@@ -346,12 +426,33 @@ const BottomSheet = (() => {
         ? `${formatNum(station.dist)} km de você`
         : "Cuiabá · MT";
 
+    const tank = currentVehicle?.tank || 50;
+    const activeFullPrice =
+      station.full != null
+        ? station.full
+        : station.price != null
+          ? station.price * tank
+          : null;
+    const activeHalfPrice =
+      station.half != null
+        ? station.half
+        : activeFullPrice != null
+          ? activeFullPrice / 2
+          : null;
+
+    const vehicleOptions = allVehicles
+      .map(
+        (v, i) =>
+          `<option value="${i}" ${i === currentVehicleIdx ? "selected" : ""}>${v.name} (${v.tank}L)</option>`,
+      )
+      .join("");
+
     container.innerHTML = `
       <!-- Cabeçalho Fixo do Bottom Sheet -->
       <div class="sheet-drag-area border-b border-slate-100 bg-white sticky top-0 z-20 shrink-0">
         <div class="sheet-drag-handle"></div>
 
-        <div class="flex items-center justify-between gap-3 pt-1.5 pb-2.5 px-4 sm:px-5">
+        <div class="flex items-center justify-between gap-3 pt-1.5 pb-2 px-4 sm:px-5">
           <div class="flex items-center gap-2.5 min-w-0">
             <span class="w-8 h-8 rounded-xl bg-emerald-950/10 text-[#0e7048] flex items-center justify-center text-sm font-black shrink-0">
               <i data-lucide="fuel" class="w-4 h-4 text-[#0e7048]"></i>
@@ -373,9 +474,18 @@ const BottomSheet = (() => {
           </button>
         </div>
 
-        <!-- Seletor de Ordenação: Menor Preço vs. Mais Perto -->
-        <div class="flex items-center justify-between gap-2 py-2.5 px-4 sm:px-5 border-t border-slate-100">
-          <span class="text-xs font-bold text-slate-600">Ordenar por:</span>
+        <!-- Barra de Veículo e Ordenação -->
+        <div class="flex items-center justify-between gap-2 py-2 px-4 sm:px-5 border-t border-slate-100 bg-slate-50/50">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <i data-lucide="car" class="w-3.5 h-3.5 text-[#0e7048] shrink-0"></i>
+            <select
+              id="sheetExpandedVehicleSel"
+              class="text-xs font-bold bg-white text-slate-800 border border-slate-200 rounded-lg px-2 py-1 outline-none cursor-pointer max-w-[155px] sm:max-w-[200px] truncate shadow-2xs"
+            >
+              ${vehicleOptions}
+            </select>
+          </div>
+
           <div class="flex items-center gap-1.5 shrink-0">
             <button
               id="sortPriceBtn"
@@ -405,7 +515,7 @@ const BottomSheet = (() => {
               <i data-lucide="locate-fixed" class="w-3.5 h-3.5 text-amber-700 shrink-0"></i>
               <span class="font-medium truncate">Ative o GPS para calcular distância exata</span>
             </div>
-            <span class="font-bold underline text-[#0e7048] shrink-0 ml-2">Ativar GPS &rarr;</span>
+            <span class="font-bold underline text-[#0e7048] shrink-0 ml-2">Ativar GPS;</span>
           </div>
         `
             : ""
@@ -435,6 +545,28 @@ const BottomSheet = (() => {
             <div class="text-right shrink-0">
               <div class="text-2xl font-black text-slate-900 tabular-nums">${activePriceText}</div>
               <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">por litro</div>
+            </div>
+          </div>
+
+          <!-- Simulação do Posto em Destaque -->
+          <div class="mt-3 pt-2.5 border-t border-slate-100 grid grid-cols-2 gap-2">
+            <div class="rounded-xl bg-emerald-50/90 border border-emerald-200/80 p-2 text-center">
+              <div class="text-[10px] font-bold text-[#0e7048] uppercase tracking-wide flex items-center justify-center gap-1">
+                <i data-lucide="fuel" class="w-3 h-3 text-[#0e7048]"></i>
+                <span>Tanque cheio (${tank}L)</span>
+              </div>
+              <div class="text-sm sm:text-base font-black text-emerald-950 mt-0.5 tabular-nums">
+                ${activeFullPrice != null ? formatBrl(activeFullPrice) : "—"}
+              </div>
+            </div>
+            <div class="rounded-xl bg-amber-50/90 border border-amber-200/80 p-2 text-center">
+              <div class="text-[10px] font-bold text-amber-700 uppercase tracking-wide flex items-center justify-center gap-1">
+                <i data-lucide="gauge" class="w-3 h-3 text-amber-600"></i>
+                <span>Meio tanque (${tank / 2}L)</span>
+              </div>
+              <div class="text-sm sm:text-base font-black text-amber-950 mt-0.5 tabular-nums">
+                ${activeHalfPrice != null ? formatBrl(activeHalfPrice) : "—"}
+              </div>
             </div>
           </div>
 
@@ -481,6 +613,14 @@ const BottomSheet = (() => {
               const isRankBest = globalIndex === 0;
               const price = s.price != null ? formatBrl(s.price) : "Sem preço";
               const dist = s.dist != null ? `${formatNum(s.dist)} km` : "—";
+              const sFull =
+                s.full != null
+                  ? s.full
+                  : s.price != null
+                    ? s.price * tank
+                    : null;
+              const sHalf =
+                s.half != null ? s.half : sFull != null ? sFull / 2 : null;
               const stRouteUrl =
                 `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}` +
                 (currentUserPos
@@ -520,6 +660,18 @@ const BottomSheet = (() => {
                         <span class="flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3 text-slate-400"></i><span>${dist}</span></span>
                         ${s.gnv ? '<span class="text-[#0e7048] font-bold">· GNV</span>' : ""}
                       </div>
+
+                      ${
+                        sFull != null
+                          ? `
+                        <div class="mt-1 text-[10.5px] font-bold text-slate-600 flex items-center gap-2 flex-wrap">
+                          <span class="text-emerald-700">Tanque: <strong>${formatBrl(sFull)}</strong></span>
+                          <span class="text-slate-300">·</span>
+                          <span class="text-amber-700">Meio: <strong>${formatBrl(sHalf)}</strong></span>
+                        </div>
+                      `
+                          : ""
+                      }
                     </div>
                   </div>
 
@@ -596,6 +748,18 @@ const BottomSheet = (() => {
     container
       .querySelector("#sheetCloseBtn")
       ?.addEventListener("click", () => collapse());
+
+    const expVehicleSel = container.querySelector("#sheetExpandedVehicleSel");
+    if (expVehicleSel) {
+      expVehicleSel.addEventListener("change", (e) => {
+        const idx = parseInt(e.target.value, 10);
+        if (!isNaN(idx) && typeof onVehicleChangeCb === "function") {
+          currentVehicleIdx = idx;
+          if (allVehicles[idx]) currentVehicle = allVehicles[idx];
+          onVehicleChangeCb(idx);
+        }
+      });
+    }
 
     // Botões de navegação de página
     container.querySelector("#sheetPrevBtn")?.addEventListener("click", () => {

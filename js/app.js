@@ -36,13 +36,23 @@
     pricesWeek: '',
     pricesWeekId: '',
     fuel: FUELS.some(f => f.id === prefs.fuel) ? prefs.fuel : 'gasolina',
+    vehicle: typeof prefs.vehicle === 'number' && typeof VEHICLES !== 'undefined' && VEHICLES[prefs.vehicle] ? prefs.vehicle : 1,
     sort: 'price', // 'price' | 'dist'
     userPos: null,
     activeId: null,
     currentView: 'map' // O MAPA É A PÁGINA INICIAL!
   };
 
-  const savePrefs = () => store.set(PREFS_KEY, { fuel: state.fuel });
+  const savePrefs = () => store.set(PREFS_KEY, { fuel: state.fuel, vehicle: state.vehicle });
+
+  function setVehicle(idx) {
+    const i = parseInt(idx, 10);
+    if (!isNaN(i) && typeof VEHICLES !== 'undefined' && VEHICLES[i]) {
+      state.vehicle = i;
+      savePrefs();
+      render();
+    }
+  }
 
   // Normalização de Postos
   function normalizeStation(cnpj, razao, endereco, bairro, dist, lat, lng, mask) {
@@ -104,6 +114,9 @@
   // Cálculo e Ordenação dos Postos
   function compute() {
     const fuel = FUELS.find(f => f.id === state.fuel) || FUELS[0];
+    const vehicle = (typeof VEHICLES !== 'undefined' ? VEHICLES[state.vehicle] : null) || { name: 'Padrão', tank: 50 };
+    const tank = vehicle.tank;
+
     const rows = state.stations.map(s => {
       const cnpj = s.id.slice(4);
       const p = state.prices[cnpj]?.[fuel.id];
@@ -111,6 +124,8 @@
       return {
         ...s,
         price,
+        full: price != null ? price * tank : null,
+        half: price != null ? (price * tank) / 2 : null,
         stale: !!p && p.semana !== state.pricesWeekId,
         priceDate: p ? String(p.data).split('-').reverse().join('/') : '',
         dist: state.userPos ? haversineKm(state.userPos, s) : null
@@ -128,12 +143,12 @@
     // Ordenação da lista de postos (por menor preço ou por distância)
     const ranked = [...rows].sort(state.sort === 'dist' ? (a, b) => byDist(a, b) || byPrice(a, b) : byPrice);
 
-    return { rows: ranked, best, fuel };
+    return { rows: ranked, best, fuel, vehicle, vehicleIdx: state.vehicle };
   }
 
   // Renderização Central
   function render() {
-    const { rows, best, fuel } = compute();
+    const { rows, best, fuel, vehicle, vehicleIdx } = compute();
 
     // 1. Atualiza Marcadores no Mapa
     MapView.renderMarkers(rows, best?.id, state.activeId, brl);
@@ -147,6 +162,10 @@
         rows,
         sort: state.sort,
         fuel,
+        vehicle,
+        vehicleIdx,
+        vehicles: typeof VEHICLES !== 'undefined' ? VEHICLES : [],
+        onVehicleChange: setVehicle,
         userPos: state.userPos,
         brlFormatter: brl,
         numFormatter: num
@@ -162,6 +181,10 @@
       bestStation: best,
       fuel,
       fuels: FUELS,
+      vehicle,
+      vehicleIdx,
+      vehicles: typeof VEHICLES !== 'undefined' ? VEHICLES : [],
+      onVehicleChange: setVehicle,
       userPos: state.userPos,
       brlFormatter: brl,
       numFormatter: num,
@@ -301,7 +324,8 @@
       },
       onRequestGps: () => {
         requestLocation(false);
-      }
+      },
+      onVehicleChange: setVehicle
     });
 
     // 4. Inicializa Lista (Mobile — início)
@@ -315,6 +339,7 @@
         render();
       },
       onUseGps: () => requestLocation(true),
+      onVehicleChange: setVehicle,
       onFuelChange: fuelId => {
         state.fuel = fuelId;
         savePrefs();
