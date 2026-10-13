@@ -392,9 +392,11 @@
   }
 
   // Geolocation (GPS & Zoom na localização atual)
-  function requestLocation(shouldZoom = true) {
+  // auto: pedido feito ao abrir o site, sem a pessoa tocar em nada. Não mostra aviso se ela recusar
+  // e só leva o mapa até ela se estiver na região de Cuiabá.
+  function requestLocation(shouldZoom = true, { auto = false } = {}) {
     if (!navigator.geolocation) {
-      UI.toast('Este navegador não informa a localização.');
+      if (!auto) UI.toast('Este navegador não informa a localização.');
       return;
     }
     const gpsBtn = document.getElementById('floatingGpsBtn');
@@ -402,7 +404,7 @@
       gpsBtn.classList.remove('is-hint');
       gpsBtn.classList.add('is-loading');
     }
-    store.set(GPS_HINT_KEY, true);
+    if (!auto) store.set(GPS_HINT_KEY, true);
 
     // Se já conhecemos a posição do usuário, faz o zoom imediato sem esperar a rede
     if (shouldZoom && state.userPos) {
@@ -422,15 +424,17 @@
         const lng = pos.coords.longitude;
         state.userPos = { lat, lng };
         MapView.updateUserLocation(lat, lng, pos.coords.accuracy || 300);
-        if (shouldZoom) {
-          MapView.focusLocation(lat, lng, 16);
+        if (shouldZoom && (!auto || haversineKm(CUIABA, state.userPos) <= 60)) {
+          MapView.focusLocation(lat, lng, auto ? 15 : 16);
         }
         render();
       },
       err => {
         if (gpsBtn) gpsBtn.classList.remove('is-loading');
         console.warn('GPS erro:', err.message);
-        if (!state.userPos) {
+        if (auto) {
+          if (!store.get(GPS_HINT_KEY)) gpsBtn?.classList.add('is-hint');
+        } else if (!state.userPos) {
           UI.toast(err.code === 1 ? 'Localização bloqueada. Libere o acesso nas permissões do navegador.' : 'Não foi possível obter a sua localização. Tente de novo.');
         }
       },
@@ -563,6 +567,10 @@
 
     // 10. Carrega preços da ANP (em segundo plano)
     loadPrices();
+
+    // 11. Pede a localização logo ao abrir e leva o mapa até a pessoa.
+    // Num link compartilhado o mapa fica no posto do link; a localização só serve para a distância.
+    requestLocation(!state.activeId, { auto: true });
   }
 
   // Executa ao carregar o DOM
