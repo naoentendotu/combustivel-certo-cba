@@ -16,7 +16,9 @@ const BottomSheet = (() => {
   let currentPage = 1;
   const PAGE_SIZE = 10;
   let currentVehicleIdx = 1;
-  let currentVehicle = (typeof VEHICLES !== "undefined" ? VEHICLES[1] : null) || {
+  let currentVehicle = (typeof VEHICLES !== "undefined"
+    ? VEHICLES[1]
+    : null) || {
     name: "Hyundai HB20",
     tank: 50,
   };
@@ -236,12 +238,25 @@ const BottomSheet = (() => {
       : "Combustível";
 
     const tank = currentVehicle?.tank || 50;
-    const fullPrice = station.full != null ? station.full : (station.price != null ? station.price * tank : null);
-    const halfPrice = station.half != null ? station.half : (fullPrice != null ? fullPrice / 2 : null);
+    const fullPrice =
+      station.full != null
+        ? station.full
+        : station.price != null
+          ? station.price * tank
+          : null;
+    const halfPrice =
+      station.half != null
+        ? station.half
+        : fullPrice != null
+          ? fullPrice / 2
+          : null;
 
-    const vehicleOptions = allVehicles.map((v, i) =>
-      `<option value="${i}" ${i === currentVehicleIdx ? 'selected' : ''}>${v.name} (${v.tank}L)</option>`
-    ).join("");
+    const vehicleOptions = allVehicles
+      .map(
+        (v, i) =>
+          `<option value="${i}" ${i === currentVehicleIdx ? "selected" : ""}>${v.name} (${v.tank}L)</option>`,
+      )
+      .join("");
 
     const bestBadge = isBest
       ? `<span class="px-2.5 py-1 rounded-full bg-[#0e7048] text-white font-black text-[10px] tracking-wide uppercase shadow-sm flex items-center gap-1.5"><i data-lucide="star" class="w-3 h-3 fill-amber-300 text-amber-300"></i><span>Menor preço · ${fuelName}</span></span>`
@@ -382,22 +397,38 @@ const BottomSheet = (() => {
     const fuelName = currentFuel
       ? currentFuel.label || currentFuel.shortLabel || currentFuel.name
       : "Combustível";
-    const isSortPrice = currentSort === "price";
-    const isSortDist = currentSort === "dist";
+    const isSortBoth = currentSort === "both";
+    const isSortPrice = currentSort === "price" || isSortBoth;
+    const isSortDist = currentSort === "dist" || isSortBoth;
 
     // Ordenação dos postos na lista
-    const sortedRows = [...stationRows].sort((a, b) => {
-      if (isSortDist) {
-        return (
-          (a.dist ?? Infinity) - (b.dist ?? Infinity) ||
-          (a.price ?? Infinity) - (b.price ?? Infinity)
-        );
+    const byDist = (a, b) => (a.dist ?? Infinity) - (b.dist ?? Infinity);
+    const byPrice = (a, b) => (a.price ?? Infinity) - (b.price ?? Infinity) || byDist(a, b);
+
+    let sortedRows = [...stationRows];
+    if (currentSort === "dist") {
+      sortedRows.sort((a, b) => byDist(a, b) || byPrice(a, b));
+    } else if (currentSort === "both") {
+      if (!currentUserPos) {
+        sortedRows.sort(byPrice);
+      } else {
+        const sortedByPrice = [...stationRows].sort(byPrice);
+        const priceRanks = new Map();
+        sortedByPrice.forEach((r, idx) => priceRanks.set(r.id, idx));
+
+        const sortedByDist = [...stationRows].sort(byDist);
+        const distRanks = new Map();
+        sortedByDist.forEach((r, idx) => distRanks.set(r.id, idx));
+
+        sortedRows.sort((a, b) => {
+          const scoreA = (priceRanks.get(a.id) ?? 999) + (distRanks.get(a.id) ?? 999);
+          const scoreB = (priceRanks.get(b.id) ?? 999) + (distRanks.get(b.id) ?? 999);
+          return scoreA - scoreB || byPrice(a, b) || byDist(a, b);
+        });
       }
-      return (
-        (a.price ?? Infinity) - (b.price ?? Infinity) ||
-        (a.dist ?? Infinity) - (b.dist ?? Infinity)
-      );
-    });
+    } else {
+      sortedRows.sort(byPrice);
+    }
 
     // Cálculos de Paginação (10 em 10)
     const totalItems = sortedRows.length;
@@ -485,14 +516,18 @@ const BottomSheet = (() => {
           </button>
         </div>
 
-        <!-- Seletor de Ordenação: Menor Preço vs. Mais Perto -->
+        <!-- Seletor de Ordenação: Menor Preço & Mais Perto (Ambos selecionáveis!) -->
         <div class="flex items-center justify-between gap-2 py-2 px-4 sm:px-5 border-t border-slate-100">
-          <span class="text-xs font-bold text-slate-600">Ordenar por:</span>
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="text-xs font-bold text-slate-600">Ordenar por:</span>
+            ${isSortBoth ? '<span class="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-[#0e7048]">Menor Preço + Mais Perto</span>' : ''}
+          </div>
           <div class="flex items-center gap-1.5 shrink-0">
             <button
               id="sortPriceBtn"
               type="button"
               class="sort-pill-btn ${isSortPrice ? "is-active" : ""}"
+              title="Filtrar por menor preço"
             >
               <i data-lucide="badge-percent" class="w-3.5 h-3.5"></i>
               <span>Menor preço</span>
@@ -502,6 +537,7 @@ const BottomSheet = (() => {
               id="sortDistBtn"
               type="button"
               class="sort-pill-btn ${isSortDist ? "is-active" : ""}"
+              title="Filtrar por mais perto"
             >
               <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
               <span>Mais perto</span>
@@ -510,14 +546,14 @@ const BottomSheet = (() => {
         </div>
 
         ${
-          isSortDist && !currentUserPos
+          (isSortDist || isSortBoth) && !currentUserPos
             ? `
           <div id="sheetGpsAlert" class="mx-4 sm:mx-5 my-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between cursor-pointer">
             <div class="flex items-center gap-1.5 min-w-0">
               <i data-lucide="locate-fixed" class="w-3.5 h-3.5 text-amber-700 shrink-0"></i>
               <span class="font-medium truncate">Ative o GPS para calcular distância exata</span>
             </div>
-            <span class="font-bold underline text-[#0e7048] shrink-0 ml-2">Ativar GPS;</span>
+            <span class="font-bold underline text-[#0e7048] shrink-0 ml-2">Ativar GPS</span>
           </div>
         `
             : ""
@@ -600,8 +636,8 @@ const BottomSheet = (() => {
         <!-- 2. Cabeçalho da Lista de Postos com Paginação -->
         <div class="pt-2 px-0.5 flex items-center justify-between">
           <div class="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500">
-            <i data-lucide="${isSortDist ? "map-pin" : "badge-percent"}" class="w-3.5 h-3.5 text-[#0e7048]"></i>
-            <span>${isSortDist ? "Postos mais próximos" : "Postos por menor preço"}</span>
+            <i data-lucide="${isSortBoth ? "sparkles" : isSortDist ? "map-pin" : "badge-percent"}" class="w-3.5 h-3.5 text-[#0e7048]"></i>
+            <span>${isSortBoth ? "Menor preço & Mais perto" : isSortDist ? "Postos mais próximos" : "Postos por menor preço"}</span>
           </div>
           <span class="text-[11px] text-slate-400 font-semibold">10 por página</span>
         </div>
@@ -784,26 +820,55 @@ const BottomSheet = (() => {
       }
     });
 
-    // Botões de ordenação
-    container.querySelector("#sortPriceBtn")?.addEventListener("click", () => {
-      currentSort = "price";
-      currentPage = 1;
-      if (bestStation) activeStation = bestStation;
-      if (typeof onSortChangeCb === "function") onSortChangeCb("price");
-      render();
-    });
+    function toggleFilter(target) {
+      const hadPrice = currentSort === "price" || currentSort === "both";
+      const hadDist = currentSort === "dist" || currentSort === "both";
 
-    container.querySelector("#sortDistBtn")?.addEventListener("click", () => {
-      if (currentSort !== "dist") {
-        currentSort = "dist";
-        currentPage = 1;
-        if (typeof onSortChangeCb === "function") onSortChangeCb("dist");
-        if (!currentUserPos && typeof onRequestGpsCb === "function") {
-          onRequestGpsCb();
+      let nextPrice = hadPrice;
+      let nextDist = hadDist;
+
+      if (target === "price") {
+        if (hadPrice && hadDist) {
+          nextPrice = false; // Desmarca menor preço, mantém mais perto
+        } else if (!hadPrice) {
+          nextPrice = true; // Marca menor preço, agora ambos estão ativos!
         }
-        render();
+      } else if (target === "dist") {
+        if (hadPrice && hadDist) {
+          nextDist = false; // Desmarca mais perto, mantém menor preço
+        } else if (!hadDist) {
+          nextDist = true; // Marca mais perto, agora ambos estão ativos!
+        }
       }
-    });
+
+      let newSort = "price";
+      if (nextPrice && nextDist) newSort = "both";
+      else if (nextDist) newSort = "dist";
+      else newSort = "price";
+
+      currentSort = newSort;
+      currentPage = 1;
+
+      if (
+        (newSort === "dist" || newSort === "both") &&
+        !currentUserPos &&
+        typeof onRequestGpsCb === "function"
+      ) {
+        onRequestGpsCb();
+      }
+      if (typeof onSortChangeCb === "function") {
+        onSortChangeCb(newSort);
+      }
+      render();
+    }
+
+    // Botões de ordenação (suporta selecionar ambos!)
+    container
+      .querySelector("#sortPriceBtn")
+      ?.addEventListener("click", () => toggleFilter("price"));
+    container
+      .querySelector("#sortDistBtn")
+      ?.addEventListener("click", () => toggleFilter("dist"));
 
     container
       .querySelector("#sheetBackToBestBtn")

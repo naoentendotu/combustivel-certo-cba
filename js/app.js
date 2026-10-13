@@ -37,13 +37,13 @@
     pricesWeekId: '',
     fuel: FUELS.some(f => f.id === prefs.fuel) ? prefs.fuel : 'gasolina',
     vehicle: typeof prefs.vehicle === 'number' && typeof VEHICLES !== 'undefined' && VEHICLES[prefs.vehicle] ? prefs.vehicle : 1,
-    sort: 'price', // 'price' | 'dist'
+    sort: prefs.sort || 'price', // 'price' | 'dist' | 'both'
     userPos: null,
     activeId: null,
     currentView: 'map' // O MAPA É A PÁGINA INICIAL!
   };
 
-  const savePrefs = () => store.set(PREFS_KEY, { fuel: state.fuel, vehicle: state.vehicle });
+  const savePrefs = () => store.set(PREFS_KEY, { fuel: state.fuel, vehicle: state.vehicle, sort: state.sort });
 
   function setVehicle(idx) {
     const i = parseInt(idx, 10);
@@ -140,8 +140,31 @@
     withValidPrice.sort(byPrice);
     const best = withValidPrice.find(r => !r.stale) || withValidPrice[0] || null;
 
-    // Ordenação da lista de postos (por menor preço ou por distância)
-    const ranked = [...rows].sort(state.sort === 'dist' ? (a, b) => byDist(a, b) || byPrice(a, b) : byPrice);
+    // Ordenação da lista de postos (menor preço, mais perto ou ambos combinados)
+    let ranked;
+    if (state.sort === 'dist') {
+      ranked = [...rows].sort((a, b) => byDist(a, b) || byPrice(a, b));
+    } else if (state.sort === 'both') {
+      if (!state.userPos) {
+        ranked = [...rows].sort(byPrice);
+      } else {
+        const sortedByPrice = [...rows].sort(byPrice);
+        const priceRanks = new Map();
+        sortedByPrice.forEach((r, idx) => priceRanks.set(r.id, idx));
+
+        const sortedByDist = [...rows].sort(byDist);
+        const distRanks = new Map();
+        sortedByDist.forEach((r, idx) => distRanks.set(r.id, idx));
+
+        ranked = [...rows].sort((a, b) => {
+          const scoreA = (priceRanks.get(a.id) ?? 999) + (distRanks.get(a.id) ?? 999);
+          const scoreB = (priceRanks.get(b.id) ?? 999) + (distRanks.get(b.id) ?? 999);
+          return scoreA - scoreB || byPrice(a, b) || byDist(a, b);
+        });
+      }
+    } else {
+      ranked = [...rows].sort(byPrice);
+    }
 
     return { rows: ranked, best, fuel, vehicle, vehicleIdx: state.vehicle };
   }
@@ -317,9 +340,10 @@
       },
       onSortChange: sortKey => {
         state.sort = sortKey;
-        if (sortKey === 'price') {
-          state.activeId = null; // Destaca o de menor preço ao ordenar por menor preço
+        if (sortKey === 'price' || sortKey === 'both') {
+          state.activeId = null; // Destaca o de menor preço ao ordenar por menor preço ou custo-benefício
         }
+        savePrefs();
         render();
       },
       onRequestGps: () => {
