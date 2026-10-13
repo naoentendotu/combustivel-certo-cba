@@ -18,9 +18,13 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 ### Principais funcionalidades
 - **Mapa (tela inicial):** cada posto é um marcador com o preço. O menor preço fica em verde cheio; o terço mais barato aparece em verde e o terço mais caro, apagado. Preço fora da última semana pesquisada vem em âmbar com ícone de atenção.
 - **Painel do mapa:** no celular é uma folha inferior com o posto selecionado (preço, data da coleta, custo do tanque e rota) que abre para a lista; no desktop a lista fica fixa ao lado do mapa. Filtros: *Menor preço*, *Mais perto* e *Ocultar sem preço* (ligado por padrão, atrás do botão de filtros).
-- **Lista:** o menor preço do momento em destaque, com a diferença para a média, e todos os postos em ordem, cada um com a data da coleta. Filtros por faixa de preço (barra de duas pontas), bandeira (chips) e bairro (busca).
+- **Lista:** o menor preço do momento em destaque, com a diferença para a média, e todos os postos em ordem, cada um com a data da coleta. Filtros por faixa de preço (barra de duas pontas), bandeira (chips) e bairro (seletor).
 - **Histórico de preço:** em qualquer posto com preço, o botão de histórico abre o gráfico e as coletas da ANP daquele posto em 1 mês ou em todo o histórico.
 - **10 mais baratos:** ranking com a variação de preço de cada posto em 1 mês ou em todo o histórico. Tocar num posto leva ao mapa.
+- **Etanol ou gasolina:** em cada posto com os dois preços, a dica "Etanol ou gasolina?" no resumo abre, ao toque, um balão com as duas opções e a vantagem de cada uma (custo por km pela regra dos 70%, autonomia e valor para encher o tanque).
+- **Tendência da semana:** um aviso no mapa e na lista, que a pessoa fecha depois de ler, com quanto o preço médio subiu ou caiu em relação à semana anterior, comparando só os postos pesquisados nas duas semanas.
+- **Compartilhar:** envia o preço de um posto pelo compartilhamento do celular (ou WhatsApp), com um link que abre o app naquele posto.
+- **Meu carro:** no seletor de veículo, a pessoa adiciona o próprio carro com o tamanho do tanque; ele fica salvo no navegador e pode ser editado ou removido.
 - **Estados:** carregamento, erro (com "Tentar de novo") e vazio explicados no mapa, na lista, no histórico e no ranking.
 
 ### Implementações futuras
@@ -49,6 +53,7 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 - **Tipografia:** Barlow para texto e Barlow Semi Condensed para preços, via Google Fonts.
 - **Leaflet (1.9.4 CDN):** Renderização de mapas e camadas interativas.
 - **Lucide Icons (CDN):** Ícones vetoriais em substituição a emojis e caracteres Unicode.
+- **Web Awesome 3:** componentes de formulário (seletor de veículo e de bairro, barra de faixa de preço e campos do "Meu carro"), carregados por CDN, sem etapa de build.
 
 ### Serviços Externos
 - **OpenStreetMap / CartoDB:** Camadas de mapa (tiles).
@@ -69,10 +74,11 @@ combustivel-certo/
 │   ├── api-service.js       # Serviço compartilhado pelas funções de api/
 │   └── xlsx.js              # Leitor nativo de arquivos .xlsx sem dependências
 ├── public/                  # Site (única cópia): servido pelo server.js e publicado pelo Vercel
-│   ├── assets/              # Identidade visual (logo-icon.svg, favicon.svg, logo.svg)
+│   ├── assets/              # Identidade visual (logo.png, logo-icon.png, favicon.svg, favicon.png, apple-touch-icon.png)
 │   ├── css/
 │   │   └── app.css          # Design system, temas, mapa, bottom sheet e navegação
 │   ├── js/
+│   │   ├── calc.js          # Contas sem tela: etanol x gasolina e tendência da semana
 │   │   ├── app.js           # Orquestrador central e gerenciador de estado da aplicação
 │   │   ├── components/
 │   │   │   ├── ui.js            # Peças compartilhadas: linha de posto, paginação, data da coleta, avisos
@@ -89,6 +95,7 @@ combustivel-certo/
 ├── test/
 │   ├── anp-ao-vivo.test.js  # Testes de integração ao vivo contra o portal da ANP
 │   ├── helpers.js           # Gerador de planilhas e mocks para testes
+│   ├── calc.test.js         # Testes das contas de etanol x gasolina e da tendência
 │   └── precos.test.js       # Suíte com 14 testes automatizados locais
 ├── package.json             # Metadados do projeto e scripts npm
 ├── server.js                # Servidor HTTP nativo e handler compatível com Vercel
