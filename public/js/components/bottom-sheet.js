@@ -7,7 +7,6 @@ const BottomSheet = (() => {
   let container = null;
   let backdrop = null;
 
-  // Estado interno
   let isExpanded = false;
   let isMini = false; // folha abaixada: só o topo do posto, até o preço
   let currentSort = "price"; // 'price' | 'dist' | 'both'
@@ -34,7 +33,6 @@ const BottomSheet = (() => {
       maximumFractionDigits: d,
     });
 
-  // Callbacks
   let onSelectStationCb = null;
   let onSortChangeCb = null;
   let onHideNoPriceChangeCb = null;
@@ -43,10 +41,12 @@ const BottomSheet = (() => {
   let onShowHistoryCb = null;
   let onShareCb = null;
 
-  // Gestos de toque
-  let touchStartY = 0;
-  let touchStartTime = 0;
-  let isDraggingHandle = false;
+  // Arrasto da folha: ela acompanha o dedo e, ao soltar, desliza até a posição mais próxima
+  let drag = null; // { y0, t0, h0, mini, peek, full, moved, lastY, lastT, v }
+  let settling = false;
+  let pendingRender = false;
+  let lastPeekH = 360;
+  let lastMiniH = 120;
 
   const desktop = window.matchMedia("(min-width: 1024px)");
   const isDocked = () => desktop.matches;
@@ -74,7 +74,7 @@ const BottomSheet = (() => {
 
     if (!container) return;
 
-    if (backdrop) backdrop.addEventListener("click", () => collapse());
+    if (backdrop) backdrop.addEventListener("click", () => snapTo("peek"));
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && isExpanded && !isDocked()) collapse();
@@ -92,41 +92,139 @@ const BottomSheet = (() => {
     setupTouchGestures();
   }
 
+  const stateName = () => (isExpanded ? "full" : isMini ? "mini" : "peek");
+
+  // Altura da folha abaixada: do topo até o fim do bloco com o nome e o preço do posto
+  function miniHeight() {
+    const head = container.querySelector(".sheet-peek .summary-head");
+    if (!head) return lastMiniH;
+    return Math.round(head.getBoundingClientRect().bottom - container.getBoundingClientRect().top + 14);
+  }
+
+  // Alturas das três posições, medidas a partir do que está na tela agora
+  function snapHeights() {
+    const full = (container.parentElement?.clientHeight || window.innerHeight) - 56;
+    if (!isExpanded) {
+      if (isMini) {
+        // mede a folha recolhida inteira sem mudar o que a pessoa vê
+        const h = container.offsetHeight;
+        container.style.height = h + "px";
+        container.classList.remove("is-mini");
+        lastMiniH = h;
+        lastPeekH = Math.min(container.scrollHeight, 460);
+      } else {
+        lastPeekH = container.offsetHeight;
+        lastMiniH = miniHeight();
+      }
+    }
+    return { mini: Math.min(lastMiniH, lastPeekH), peek: Math.min(lastPeekH, full), full };
+  }
+
+  const setSheetVar = (h) => container.parentElement?.style.setProperty("--sheet-h", Math.round(h) + "px");
+
+  // Desliza a folha até uma posição ("mini", "peek" ou "full") e só então troca o conteúdo
+  function snapTo(target, heights) {
+    if (!container || isDocked() || settling) return;
+    const from = container.offsetHeight;
+    const hs = heights || snapHeights();
+    const to = hs[target];
+
+    const finish = () => {
+      settling = false;
+      container.classList.remove("is-settling", "is-dragging");
+      container.style.height = "";
+      container.style.maxHeight = "";
+      isExpanded = target === "full";
+      isMini = target === "mini";
+      container.classList.toggle("is-expanded", isExpanded);
+      backdrop?.classList.toggle("is-hidden", !isExpanded);
+      pendingRender = false;
+      render();
+    };
+
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (still || Math.abs(to - from) < 2) return finish();
+
+    settling = true;
+    container.style.maxHeight = "none";
+    container.style.height = from + "px";
+    container.classList.remove("is-dragging", "is-mini");
+    void container.offsetHeight; // fixa a altura de partida antes de animar
+    container.classList.add("is-settling");
+    container.style.height = to + "px";
+    setSheetVar(Math.min(to, hs.peek));
+
+    let done = false;
+    const end = (e) => {
+      if (done || (e && (e.target !== container || e.propertyName !== "height"))) return;
+      done = true;
+      container.removeEventListener("transitionend", end);
+      finish();
+    };
+    container.addEventListener("transitionend", end);
+    setTimeout(end, 400);
+  }
+
   function setupTouchGestures() {
     container.addEventListener(
       "touchstart",
       (e) => {
-        if (e.target.closest(".sheet-grip, .sheet-head") || !isExpanded) {
-          touchStartY = e.touches[0].clientY;
-          touchStartTime = Date.now();
-          isDraggingHandle = true;
-        } else {
-          isDraggingHandle = false;
-        }
+        drag = null;
+        if (isDocked() || settling || e.touches.length !== 1) return;
+        // Com a lista aberta, só o topo arrasta a folha; o resto rola a lista
+        if (isExpanded && !e.target.closest(".sheet-grip, .sheet-head")) return;
+        const y = e.touches[0].clientY;
+        drag = { y0: y, t0: Date.now(), h0: 0, moved: false, lastY: y, lastT: Date.now(), v: 0 };
       },
       { passive: true },
     );
 
     container.addEventListener(
-      "touchend",
+      "touchmove",
       (e) => {
-        if (isDocked() || (!isDraggingHandle && isExpanded)) return;
-        const deltaY = e.changedTouches[0].clientY - touchStartY;
-        const deltaTime = Date.now() - touchStartTime;
-
-        if (!isExpanded && (deltaY < -35 || (deltaY < -20 && deltaTime < 250))) {
-          if (isMini) setMini(false);
-          else expand();
-        } else if (!isExpanded && !isMini && (deltaY > 35 || (deltaY > 20 && deltaTime < 250))) {
-          setMini(true);
-        } else if (isExpanded && (deltaY > 45 || (deltaY > 25 && deltaTime < 250))) {
-          const scrollBox = container.querySelector(".sheet-scroll-content");
-          if (!scrollBox || scrollBox.scrollTop <= 10) collapse();
+        if (!drag) return;
+        const y = e.touches[0].clientY;
+        const dy = y - drag.y0;
+        if (!drag.moved) {
+          if (Math.abs(dy) < 6) return;
+          drag.moved = true;
+          drag.h0 = container.offsetHeight;
+          drag.start = stateName();
+          Object.assign(drag, snapHeights());
+          container.classList.add("is-dragging");
+          container.classList.remove("is-mini");
+          container.style.maxHeight = "none";
         }
-        isDraggingHandle = false;
+        const now = Date.now();
+        if (now > drag.lastT) drag.v = (y - drag.lastY) / (now - drag.lastT); // px/ms, positivo para baixo
+        drag.lastY = y;
+        drag.lastT = now;
+
+        const h = Math.max(drag.mini, Math.min(drag.full, drag.h0 - dy));
+        container.style.height = h + "px";
+        setSheetVar(Math.min(h, drag.peek));
       },
       { passive: true },
     );
+
+    const release = () => {
+      const d = drag;
+      drag = null;
+      if (!d || !d.moved) return;
+      const h = container.offsetHeight;
+      const order = ["mini", "peek", "full"];
+      let target;
+      if (Math.abs(d.v) > 0.45 && Date.now() - d.lastT < 120) {
+        // Puxão rápido: vai para a próxima posição na direção do gesto
+        const i = order.indexOf(d.start) + (d.v < 0 ? 1 : -1);
+        target = order[Math.max(0, Math.min(2, i))];
+      } else {
+        target = order.reduce((a, b) => (Math.abs(d[b] - h) < Math.abs(d[a] - h) ? b : a));
+      }
+      snapTo(target, d);
+    };
+    container.addEventListener("touchend", release, { passive: true });
+    container.addEventListener("touchcancel", release, { passive: true });
   }
 
   function update({
@@ -170,12 +268,6 @@ const BottomSheet = (() => {
     render();
   }
 
-  // Abaixa a folha recolhida para sobrar mais mapa em telas baixas
-  function setMini(on) {
-    isMini = on;
-    render();
-  }
-
   function expand() {
     if (isDocked()) return;
     isExpanded = true;
@@ -211,6 +303,10 @@ const BottomSheet = (() => {
 
   function render() {
     if (!container || !activeStation) return;
+    if (drag?.moved || settling) {
+      pendingRender = true; // redesenha quando a folha parar
+      return;
+    }
 
     if (isExpanded || isDocked()) renderExpanded();
     else renderCollapsed();
@@ -339,12 +435,12 @@ const BottomSheet = (() => {
       </div>
     `;
 
-    container.querySelector("#sheetPeekHeader")?.addEventListener("click", () => (isMini ? setMini(false) : expand()));
+    container.querySelector("#sheetPeekHeader")?.addEventListener("click", () => snapTo(isMini ? "peek" : "full"));
     // Abaixada, tocar no resumo (fora dos botões) traz os detalhes de volta
     container.querySelector(".sheet-peek")?.addEventListener("click", (e) => {
-      if (isMini && !e.target.closest("button, a")) setMini(false);
+      if (isMini && !e.target.closest("button, a")) snapTo("peek");
     });
-    container.querySelector("#sheetExpandBtn")?.addEventListener("click", () => expand());
+    container.querySelector("#sheetExpandBtn")?.addEventListener("click", () => snapTo("full"));
     bindSummary("sheetPeekVehicleSel");
   }
 
@@ -462,8 +558,8 @@ const BottomSheet = (() => {
     const scrollBox = container.querySelector(".sheet-scroll-content");
     if (scrollBox) scrollBox.scrollTop = scrollTop;
 
-    container.querySelector("#sheetCloseBtn")?.addEventListener("click", () => collapse());
-    container.querySelector("#sheetGripBtn")?.addEventListener("click", () => collapse());
+    container.querySelector("#sheetCloseBtn")?.addEventListener("click", () => snapTo("peek"));
+    container.querySelector("#sheetGripBtn")?.addEventListener("click", () => snapTo("peek"));
     bindSummary("sheetExpandedVehicleSel");
 
     const goToPage = (delta) => {

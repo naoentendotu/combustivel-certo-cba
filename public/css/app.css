@@ -796,10 +796,13 @@ wa-select:not(:defined), wa-slider:not(:defined), wa-input:not(:defined) { visib
   background: var(--surface);
   border-radius: var(--r-lg) var(--r-lg) 0 0;
   box-shadow: 0 -2px 16px rgba(22, 33, 28, 0.14);
-  touch-action: pan-y;
+  touch-action: none; /* o arrasto é da folha, não da página */
   transition: transform 0.25s ease;
 }
-.bottom-sheet.is-expanded { height: calc(100% - 56px); max-height: calc(100% - 56px); }
+.bottom-sheet.is-expanded { height: calc(100% - 56px); max-height: calc(100% - 56px); touch-action: pan-y; }
+.bottom-sheet.is-expanded .sheet-head { touch-action: none; }
+.bottom-sheet.is-dragging { transition: none; }
+.bottom-sheet.is-settling { transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .bottom-sheet.is-hidden { transform: translateY(110%); pointer-events: none; }
 
 @media (min-width: 640px) and (max-width: 1023px) {
@@ -827,8 +830,7 @@ wa-select:not(:defined), wa-slider:not(:defined), wa-input:not(:defined) { visib
 }
 .sheet-peek { padding: 2px 16px 14px; }
 /* Folha abaixada: só o topo do posto, até o preço */
-.bottom-sheet.is-mini .summary-head ~ *,
-.bottom-sheet.is-mini .sheet-peek > .hint { display: none; }
+.bottom-sheet.is-mini .summary-head ~ * { display: none; }
 .bottom-sheet.is-mini .sheet-peek { cursor: pointer; }
 
 .sheet-head { flex: none; border-bottom: 1px solid var(--line); }
