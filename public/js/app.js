@@ -247,6 +247,18 @@
     }
   }
 
+  function setFuel(fuelId) {
+    state.fuel = fuelId;
+    state.activeId = null; // volta o destaque para o menor preço do combustível escolhido
+    savePrefs();
+    render();
+    // Troca suave: os preços do novo combustível entram com um fade
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    for (const el of document.querySelectorAll('#viewList .page > .page-inner, #bottomSheet > *, .leaflet-marker-pane')) {
+      el.animate({ opacity: [0, 1] }, { duration: 220, easing: 'ease' });
+    }
+  }
+
   // Seletor de combustível sobre o mapa
   function renderFloatingFuelTabs() {
     const bar = document.getElementById('mapFloatingFuels');
@@ -254,10 +266,7 @@
     bar.innerHTML = UI.fuelSeg(FUELS, state.fuel);
     bar.querySelectorAll('[data-fuel-id]').forEach(btn => {
       btn.addEventListener('click', () => {
-        state.fuel = btn.dataset.fuelId;
-        state.activeId = null; // volta o destaque para o menor preço do combustível escolhido
-        savePrefs();
-        render();
+        setFuel(btn.dataset.fuelId);
       });
     });
   }
@@ -410,12 +419,7 @@
       onShowAll: showStationsWithoutPrice,
       onRetry: loadPrices,
       onShowHistory: showHistory,
-      onFuelChange: fuelId => {
-        state.fuel = fuelId;
-        state.activeId = null;
-        savePrefs();
-        render();
-      }
+      onFuelChange: setFuel
     });
 
     // 5. Inicializa Barra de Navegação (Mapa inicial por padrão)
