@@ -65,21 +65,24 @@ const MapView = (() => {
     markerLayer.clearLayers();
     markersMap.clear();
 
+    // Cor relativa ao conjunto: terço mais barato em verde, terço mais caro apagado
+    const precos = rows.map(r => r.price).filter(p => p != null).sort((a, b) => a - b);
+    const corteBaixo = precos[Math.floor((precos.length - 1) / 3)];
+    const corteAlto = precos[Math.ceil(((precos.length - 1) * 2) / 3)];
+    const faixa = p => (precos.length < 6 || corteAlto === corteBaixo ? "" : p <= corteBaixo ? " tier-low" : p >= corteAlto ? " tier-high" : "");
+    const alertSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+
     for (const r of rows) {
       const isBest = r.id === bestId;
       const isActive = r.id === activeId;
-      const priceText = r.price != null ? brlFormatter(r.price) : r.brand;
+      const classes = "map-pin"
+        + (r.price == null ? " map-pin-none" : faixa(r.price))
+        + (isBest ? " map-pin-best" : "")
+        + (r.stale && !isBest ? " map-pin-stale" : "")
+        + (isActive ? " is-active" : "");
+      const label = r.price != null ? brlFormatter(r.price) : UI.esc(r.brand);
 
-      // Pílula com Dot (conforme mock Mobile - mapa: branco padrão, verde no menor preço)
-      const pinClass = isBest ? 'map-pin map-pin-best' : 'map-pin';
-      const activeClass = isActive ? ' is-active' : '';
-      const staleClass = r.stale ? ' map-pin-stale' : '';
-      const starSvg = `<svg class="w-3.5 h-3.5 fill-amber-300 text-amber-300 inline shrink-0" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
-      const alertSvg = `<svg class="w-3.5 h-3.5 text-amber-400 inline shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-
-      const html = `<div class="${pinClass}${activeClass}${staleClass}" data-station-id="${r.id}">
-        ${isBest ? starSvg + ' ' : ''}${r.stale ? alertSvg + ' ' : ''}<span>${priceText}</span>
-      </div>`;
+      const html = `<div class="${classes}" data-station-id="${r.id}">${r.stale ? alertSvg : ""}<span>${label}</span></div>`;
 
       const icon = L.divIcon({
         className: 'pin-wrap',
@@ -90,7 +93,7 @@ const MapView = (() => {
       const marker = L.marker([r.lat, r.lng], {
         icon,
         zIndexOffset: isBest ? 1000 : 0,
-        title: r.name,
+        title: r.name + (r.stale ? ' (preço de ' + r.priceDate + ')' : ''),
         riseOnHover: true
       });
 
@@ -114,7 +117,10 @@ const MapView = (() => {
 
   function focusLocation(lat, lng, zoom = 15) {
     if (!map) return;
-    map.flyTo([lat, lng], zoom, { duration: 0.6 });
+    // No celular a folha cobre a parte de baixo do mapa: centraliza no espaço que sobra acima dela
+    const folha = parseFloat(getComputedStyle(map.getContainer().parentElement).getPropertyValue('--sheet-h')) || 0;
+    const alvo = map.unproject(map.project([lat, lng], zoom).add([0, folha / 2]), zoom);
+    map.flyTo(alvo, zoom, { duration: 0.6 });
   }
 
   function updateUserLocation(lat, lng, radiusMeters = 500) {
@@ -138,10 +144,10 @@ const MapView = (() => {
       userCircle = L.circle([lat, lng], {
         radius: radiusMeters,
         color: '#2563eb',
-        weight: 1.5,
-        dashArray: '5, 8',
-        fillColor: '#3b82f6',
-        fillOpacity: 0.08
+        weight: 1,
+        fillColor: '#2563eb',
+        fillOpacity: 0.08,
+        interactive: false
       }).addTo(map);
     }
   }

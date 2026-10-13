@@ -1,5 +1,7 @@
 /**
- * Combustível Certo · Componente Bottom Sheet do Mapa (Peek & Expandido com Paginação de 10 em 10)
+ * Combustível Certo · Painel do mapa
+ * No celular é uma folha inferior (resumo do posto, expansível para a lista).
+ * No desktop fica fixo ao lado do mapa, sempre com a lista aberta.
  */
 const BottomSheet = (() => {
   let container = null;
@@ -7,7 +9,8 @@ const BottomSheet = (() => {
 
   // Estado interno
   let isExpanded = false;
-  let currentSort = "price"; // 'price' | 'dist'
+  let currentSort = "price"; // 'price' | 'dist' | 'both'
+  let hideNoPrice = true;
   let activeStation = null;
   let bestStation = null;
   let stationRows = [];
@@ -18,10 +21,7 @@ const BottomSheet = (() => {
   let currentVehicleIdx = 1;
   let currentVehicle = (typeof VEHICLES !== "undefined"
     ? VEHICLES[1]
-    : null) || {
-    name: "Hyundai HB20",
-    tank: 50,
-  };
+    : null) || { name: "Hyundai HB20", tank: 50 };
   let allVehicles = typeof VEHICLES !== "undefined" ? VEHICLES : [];
 
   let formatBrl = (n) =>
@@ -35,15 +35,17 @@ const BottomSheet = (() => {
   // Callbacks
   let onSelectStationCb = null;
   let onSortChangeCb = null;
-  let hideNoPrice = true;
   let onHideNoPriceChangeCb = null;
   let onRequestGpsCb = null;
   let onVehicleChangeCb = null;
 
-  // Variáveis para rastreamento de gestos touch
+  // Gestos de toque
   let touchStartY = 0;
-  touchStartTime = 0;
+  let touchStartTime = 0;
   let isDraggingHandle = false;
+
+  const desktop = window.matchMedia("(min-width: 1024px)");
+  const isDocked = () => desktop.matches;
 
   function init({
     containerId,
@@ -64,19 +66,21 @@ const BottomSheet = (() => {
 
     if (!container) return;
 
-    // Fechar ao clicar no backdrop translúcido
-    if (backdrop) {
-      backdrop.addEventListener("click", () => collapse());
-    }
+    if (backdrop) backdrop.addEventListener("click", () => collapse());
 
-    // Fechar com tecla ESC
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && isExpanded) {
-        collapse();
-      }
+      if (e.key === "Escape" && isExpanded && !isDocked()) collapse();
     });
 
-    // Gestos de Touch na barra de puxar e no cabeçalho
+    desktop.addEventListener("change", () => {
+      if (isDocked()) {
+        isExpanded = false;
+        container.classList.remove("is-expanded");
+        backdrop?.classList.add("is-hidden");
+      }
+      render();
+    });
+
     setupTouchGestures();
   }
 
@@ -84,12 +88,7 @@ const BottomSheet = (() => {
     container.addEventListener(
       "touchstart",
       (e) => {
-        const target = e.target;
-        if (
-          target.closest(".sheet-drag-area") ||
-          target.closest(".sheet-drag-handle") ||
-          !isExpanded
-        ) {
+        if (e.target.closest(".sheet-grip, .sheet-head") || !isExpanded) {
           touchStartY = e.touches[0].clientY;
           touchStartTime = Date.now();
           isDraggingHandle = true;
@@ -103,27 +102,15 @@ const BottomSheet = (() => {
     container.addEventListener(
       "touchend",
       (e) => {
-        if (!isDraggingHandle && isExpanded) return;
-        const touchEndY = e.changedTouches[0].clientY;
-        const deltaY = touchEndY - touchStartY;
+        if (isDocked() || (!isDraggingHandle && isExpanded)) return;
+        const deltaY = e.changedTouches[0].clientY - touchStartY;
         const deltaTime = Date.now() - touchStartTime;
 
-        // Puxar para cima expande o sheet
-        if (
-          !isExpanded &&
-          (deltaY < -35 || (deltaY < -20 && deltaTime < 250))
-        ) {
+        if (!isExpanded && (deltaY < -35 || (deltaY < -20 && deltaTime < 250))) {
           expand();
-        }
-        // Puxar para baixo quando estiver no topo da rolagem recolhe o sheet
-        else if (
-          isExpanded &&
-          (deltaY > 45 || (deltaY > 25 && deltaTime < 250))
-        ) {
+        } else if (isExpanded && (deltaY > 45 || (deltaY > 25 && deltaTime < 250))) {
           const scrollBox = container.querySelector(".sheet-scroll-content");
-          if (!scrollBox || scrollBox.scrollTop <= 10) {
-            collapse();
-          }
+          if (!scrollBox || scrollBox.scrollTop <= 10) collapse();
         }
         isDraggingHandle = false;
       },
@@ -147,7 +134,7 @@ const BottomSheet = (() => {
     numFormatter,
   }) {
     if (active) activeStation = active;
-    if (best) bestStation = best;
+    if (best !== undefined) bestStation = best;
     if (rows) stationRows = rows;
     if (hide !== undefined && hide !== hideNoPrice) {
       hideNoPrice = hide;
@@ -173,765 +160,316 @@ const BottomSheet = (() => {
   }
 
   function expand() {
+    if (isDocked()) return;
     isExpanded = true;
-    if (container) {
-      container.classList.add("is-expanded");
-      container.classList.remove("is-hidden");
-    }
-    if (backdrop) {
-      backdrop.classList.remove("is-hidden");
-    }
+    container?.classList.add("is-expanded");
+    backdrop?.classList.remove("is-hidden");
     render();
   }
 
   function collapse() {
     isExpanded = false;
-    if (container) {
-      container.classList.remove("is-expanded");
-    }
-    if (backdrop) {
-      backdrop.classList.add("is-hidden");
-    }
+    container?.classList.remove("is-expanded");
+    backdrop?.classList.add("is-hidden");
     render();
   }
 
   function toggle() {
-    if (isExpanded) {
-      collapse();
-    } else {
-      expand();
-    }
+    if (isExpanded) collapse();
+    else expand();
   }
 
-  function refreshIcons() {
-    if (window.lucide && typeof window.lucide.createIcons === "function") {
-      window.lucide.createIcons();
-    }
+  // Informa ao mapa a altura ocupada pela folha, para o botão de localização ficar logo acima dela
+  function syncHeight() {
+    const host = container?.parentElement;
+    if (!host) return;
+    if (isExpanded && !isDocked()) return; // folha aberta cobre o mapa; mantém a altura da folha recolhida
+    const hidden = container.classList.contains("is-hidden");
+    host.style.setProperty(
+      "--sheet-h",
+      isDocked() || hidden ? "0px" : container.offsetHeight + "px",
+    );
   }
 
   function render() {
     if (!container || !activeStation) return;
 
-    if (isExpanded) {
-      renderExpanded();
-    } else {
-      renderCollapsed();
-    }
+    if (isExpanded || isDocked()) renderExpanded();
+    else renderCollapsed();
 
     container.classList.remove("is-hidden");
-    refreshIcons();
+    UI.icons();
+    syncHeight();
+  }
+
+  const fuelName = () =>
+    currentFuel ? currentFuel.label || currentFuel.shortLabel : "Combustível";
+
+  // Resumo do posto: usado na folha recolhida e no topo da lista
+  function summaryHtml(station, { vehicleSelId, showAll }) {
+    const isBest = bestStation && station.id === bestStation.id;
+    const tank = currentVehicle?.tank || 50;
+    const diff =
+      !isBest && bestStation && station.price != null && bestStation.price != null
+        ? station.price - bestStation.price
+        : null;
+
+    const tag = isBest
+      ? `<span class="tag-best">Menor preço · ${UI.esc(fuelName())}</span>`
+      : `<span>${UI.esc(station.brand)}${station.gnv ? " · GNV" : ""}</span>`;
+    const dist =
+      station.dist != null ? `${formatNum(station.dist)} km de você` : "";
+
+    return `
+      <div class="summary-top">${tag}<span>${dist}</span></div>
+      <div class="summary-head">
+        <div style="min-width:0">
+          <h3>${UI.esc(station.name)}</h3>
+          <p>${UI.esc(isBest ? station.brand + " · " + station.address : station.address)}</p>
+        </div>
+        <div class="summary-price">
+          ${
+            station.price != null
+              ? `<span class="price price-lg">${formatBrl(station.price)}</span><small>por litro</small>`
+              : `<span class="muted">Sem preço na pesquisa</span>`
+          }
+        </div>
+      </div>
+      ${
+        station.stale
+          ? `<p class="note-warn summary-fresh">${UI.icon("triangle-alert")}<span>Atenção: este é o último preço registrado, de ${UI.esc(station.priceDate)}. O posto não entrou na última pesquisa da ANP.</span></p>`
+          : station.price != null
+            ? `<p class="summary-fresh">${UI.freshness(station, { long: true })}</p>`
+            : ""
+      }
+      ${
+        diff != null && diff > 0.004
+          ? `<div class="summary-compare">
+              <span>${formatBrl(diff)} acima do menor preço (${formatBrl(bestStation.price)})</span>
+              <button id="sheetBackToBestBtn" type="button" class="link">Ver o menor</button>
+            </div>`
+          : ""
+      }
+      ${station.price != null ? UI.tank(station, tank, formatBrl) + UI.vehicleLine(vehicleSelId, allVehicles, currentVehicleIdx) : ""}
+      <div class="summary-actions">
+        <a class="btn btn-primary" href="${UI.routeUrl(station, currentUserPos)}" target="_blank" rel="noopener">
+          ${UI.icon("navigation")}<span>Traçar rota</span>
+        </a>
+        ${
+          showAll
+            ? `<button id="sheetExpandBtn" type="button" class="btn btn-quiet">${UI.icon("list")}<span>Ver os ${stationRows.length}</span></button>`
+            : ""
+        }
+      </div>
+    `;
+  }
+
+  function bindSummary(vehicleSelId) {
+    const sel = container.querySelector("#" + vehicleSelId);
+    sel?.addEventListener("change", (e) => {
+      const idx = parseInt(e.target.value, 10);
+      if (!isNaN(idx) && typeof onVehicleChangeCb === "function") {
+        currentVehicleIdx = idx;
+        if (allVehicles[idx]) currentVehicle = allVehicles[idx];
+        onVehicleChangeCb(idx);
+      }
+    });
+
+    container.querySelector("#sheetBackToBestBtn")?.addEventListener("click", () => {
+      if (!bestStation) return;
+      activeStation = bestStation;
+      if (typeof onSelectStationCb === "function") onSelectStationCb(bestStation);
+      render();
+    });
   }
 
   // ---------------------------------------------------------------------------
-  // Renderização: Modo Recolhido (Peek)
+  // Folha recolhida: o posto selecionado (ou o de menor preço)
   // ---------------------------------------------------------------------------
   function renderCollapsed() {
     const station = activeStation || bestStation;
     if (!station) return;
-    const isBest = bestStation && station.id === bestStation.id;
-
-    const routeUrl =
-      `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}` +
-      (currentUserPos
-        ? `&origin=${currentUserPos.lat},${currentUserPos.lng}`
-        : "");
-
-    const priceText =
-      station.price != null ? formatBrl(station.price) : "Sem preço";
-    const distText =
-      station.dist != null
-        ? `${formatNum(station.dist)} km de você`
-        : "Cuiabá · MT";
-    const fuelName = currentFuel
-      ? currentFuel.label || currentFuel.shortLabel || currentFuel.name
-      : "Combustível";
-
-    const tank = currentVehicle?.tank || 50;
-    const fullPrice =
-      station.full != null
-        ? station.full
-        : station.price != null
-          ? station.price * tank
-          : null;
-    const halfPrice =
-      station.half != null
-        ? station.half
-        : fullPrice != null
-          ? fullPrice / 2
-          : null;
-
-    const vehicleOptions = allVehicles
-      .map(
-        (v, i) =>
-          `<option value="${i}" ${i === currentVehicleIdx ? "selected" : ""}>${v.name} (${v.tank}L)</option>`,
-      )
-      .join("");
-
-    const bestBadge = isBest
-      ? `<span class="px-2.5 py-1 rounded-full bg-[#0e7048] text-white font-black text-[10px] tracking-wide uppercase shadow-sm flex items-center gap-1.5"><i data-lucide="star" class="w-3 h-3 fill-amber-300 text-amber-300"></i><span>Menor preço · ${fuelName}</span></span>`
-      : `<span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px] uppercase">${station.brand}</span>`;
 
     container.innerHTML = `
-      <!-- Puxador Superior com Área de Arraste e Clique -->
-      <div class="sheet-drag-area text-center" id="sheetPeekHeader">
-        <div class="sheet-drag-handle"></div>
-        <div class="flex items-center justify-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-[#0e7048] transition cursor-pointer select-none">
-          <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
-          <span>Puxe para cima para ver os outros (${stationRows.length} postos)</span>
-        </div>
-      </div>
-
-      <div class="px-5 pb-4 pt-1.5">
-        <!-- Linha Superior: Tags e Distância -->
-        <div class="flex items-center justify-between gap-2 mb-1.5">
-          <div class="flex items-center gap-1.5 flex-wrap">
-            ${bestBadge}
-            ${station.gnv ? '<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[10px]">GNV</span>' : ""}
-          </div>
-          <span class="text-xs font-semibold text-slate-500">${distText}</span>
-        </div>
-
-        <!-- Linha Central: Nome, Endereço e Preço Grande -->
-        <div class="flex items-baseline justify-between gap-3">
-          <div class="min-w-0 flex-1">
-            <h3 class="text-base font-extrabold text-slate-900 leading-tight truncate">${station.name}</h3>
-            <p class="text-xs text-slate-500 truncate mt-0.5">${station.brand} · ${station.address}</p>
-          </div>
-          <div class="text-right shrink-0">
-            <div class="text-2xl sm:text-3xl font-black text-slate-900 tabular-nums leading-none">${priceText}</div>
-            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">por litro</div>
-          </div>
-        </div>
-
-        ${
-          station.stale
-            ? `
-          <div class="mt-2 px-3 py-1 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-900 flex items-center gap-2">
-            <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-700 shrink-0"></i>
-            <span class="truncate">Preço coletado em ${station.priceDate} (sem visita recente da ANP)</span>
-          </div>
-        `
-            : ""
-        }
-
-        <!-- Seletor de Carro & Simulação de Tanque -->
-        <div class="mt-2.5 pt-2 border-t border-slate-100">
-          <div class="flex items-center justify-between gap-2 mb-1.5">
-            <div class="flex items-center gap-1.5 text-xs font-extrabold text-slate-700 min-w-0">
-              <i data-lucide="car" class="w-3.5 h-3.5 text-[#0e7048] shrink-0"></i>
-              <span class="truncate">Veículo:</span>
-            </div>
-            <select
-              id="sheetPeekVehicleSel"
-              class="text-xs font-bold bg-slate-100 hover:bg-slate-200/80 text-slate-800 border border-slate-200 rounded-lg px-2 py-1 outline-none cursor-pointer max-w-[210px] truncate"
-            >
-              ${vehicleOptions}
-            </select>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2">
-            <div class="rounded-xl bg-emerald-50/80 border border-emerald-200/80 px-2.5 py-1.5 text-center">
-              <div class="text-[10px] font-bold text-[#0e7048] uppercase tracking-wide flex items-center justify-center gap-1">
-                <i data-lucide="fuel" class="w-3 h-3 text-[#0e7048]"></i>
-                <span>Tanque cheio (${tank}L)</span>
-              </div>
-              <div class="text-sm sm:text-base font-black text-emerald-950 mt-0.5 tabular-nums">
-                ${fullPrice != null ? formatBrl(fullPrice) : "—"}
-              </div>
-            </div>
-
-            <div class="rounded-xl bg-amber-50/80 border border-amber-200/80 px-2.5 py-1.5 text-center">
-              <div class="text-[10px] font-bold text-amber-700 uppercase tracking-wide flex items-center justify-center gap-1">
-                <i data-lucide="gauge" class="w-3 h-3 text-amber-600"></i>
-                <span>Meio tanque (${tank / 2}L)</span>
-              </div>
-              <div class="text-sm sm:text-base font-black text-amber-950 mt-0.5 tabular-nums">
-                ${halfPrice != null ? formatBrl(halfPrice) : "—"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Botões de Ação Inferiores -->
-        <div class="mt-3 flex items-center gap-2">
-          <a
-            href="${routeUrl}"
-            target="_blank"
-            rel="noopener"
-            class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#0e7048] hover:bg-[#095436] active:scale-[0.98] text-white font-black text-xs shadow-md transition-all cursor-pointer"
-          >
-            <i data-lucide="navigation" class="w-4 h-4 text-white"></i>
-            <span>Traçar rota</span>
-          </a>
-
-          <button
-            id="sheetExpandBtn"
-            type="button"
-            class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-slate-200"
-          >
-            <i data-lucide="list" class="w-3.5 h-3.5 text-slate-600"></i>
-            <span class="hidden sm:inline">Ver todos</span>
-          </button>
-        </div>
+      <button type="button" class="sheet-grip" id="sheetPeekHeader" aria-label="Abrir a lista de postos"></button>
+      <div class="sheet-peek">
+        ${summaryHtml(station, { vehicleSelId: "sheetPeekVehicleSel", showAll: true })}
       </div>
     `;
 
-    // Eventos
-    container
-      .querySelector("#sheetPeekHeader")
-      ?.addEventListener("click", () => expand());
-    container
-      .querySelector("#sheetExpandBtn")
-      ?.addEventListener("click", () => expand());
-
-    const peekVehicleSel = container.querySelector("#sheetPeekVehicleSel");
-    if (peekVehicleSel) {
-      peekVehicleSel.addEventListener("click", (e) => e.stopPropagation());
-      peekVehicleSel.addEventListener("change", (e) => {
-        e.stopPropagation();
-        const idx = parseInt(e.target.value, 10);
-        if (!isNaN(idx) && typeof onVehicleChangeCb === "function") {
-          currentVehicleIdx = idx;
-          if (allVehicles[idx]) currentVehicle = allVehicles[idx];
-          onVehicleChangeCb(idx);
-        }
-      });
-    }
+    container.querySelector("#sheetPeekHeader")?.addEventListener("click", () => expand());
+    container.querySelector("#sheetExpandBtn")?.addEventListener("click", () => expand());
+    bindSummary("sheetPeekVehicleSel");
   }
 
   // ---------------------------------------------------------------------------
-  // Renderização: Modo Expandido (Drawer Completo com Paginação de 10 em 10)
+  // Lista de postos (folha aberta no celular, coluna fixa no desktop)
   // ---------------------------------------------------------------------------
-  function renderExpanded() {
-    const fuelName = currentFuel
-      ? currentFuel.label || currentFuel.shortLabel || currentFuel.name
-      : "Combustível";
-    const isSortBoth = currentSort === "both";
-    const isSortPrice = currentSort === "price" || isSortBoth;
-    const isSortDist = currentSort === "dist" || isSortBoth;
-
-    // Ordenação dos postos na lista
+  function sortRows() {
     const byDist = (a, b) => (a.dist ?? Infinity) - (b.dist ?? Infinity);
     const byPrice = (a, b) =>
       (a.price ?? Infinity) - (b.price ?? Infinity) || byDist(a, b);
 
-    let sortedRows = [...stationRows];
+    const sorted = [...stationRows];
     if (currentSort === "dist") {
-      sortedRows.sort((a, b) => byDist(a, b) || byPrice(a, b));
-    } else if (currentSort === "both") {
-      if (!currentUserPos) {
-        sortedRows.sort(byPrice);
-      } else {
-        const sortedByPrice = [...stationRows].sort(byPrice);
-        const priceRanks = new Map();
-        sortedByPrice.forEach((r, idx) => priceRanks.set(r.id, idx));
-
-        const sortedByDist = [...stationRows].sort(byDist);
-        const distRanks = new Map();
-        sortedByDist.forEach((r, idx) => distRanks.set(r.id, idx));
-
-        sortedRows.sort((a, b) => {
-          const scoreA =
-            (priceRanks.get(a.id) ?? 999) + (distRanks.get(a.id) ?? 999);
-          const scoreB =
-            (priceRanks.get(b.id) ?? 999) + (distRanks.get(b.id) ?? 999);
-          return scoreA - scoreB || byPrice(a, b) || byDist(a, b);
-        });
-      }
+      sorted.sort((a, b) => byDist(a, b) || byPrice(a, b));
+    } else if (currentSort === "both" && currentUserPos) {
+      const rank = (cmp) => {
+        const m = new Map();
+        [...stationRows].sort(cmp).forEach((r, i) => m.set(r.id, i));
+        return m;
+      };
+      const pr = rank(byPrice);
+      const dr = rank(byDist);
+      sorted.sort(
+        (a, b) =>
+          pr.get(a.id) + dr.get(a.id) - (pr.get(b.id) + dr.get(b.id)) ||
+          byPrice(a, b),
+      );
     } else {
-      sortedRows.sort(byPrice);
+      sorted.sort(byPrice);
     }
+    return sorted;
+  }
 
-    // Cálculos de Paginação (10 em 10)
+  function renderExpanded() {
+    const isSortBoth = currentSort === "both";
+    const isSortPrice = currentSort === "price" || isSortBoth;
+    const isSortDist = currentSort === "dist" || isSortBoth;
+
+    const sortedRows = sortRows();
     const totalItems = sortedRows.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
-
+    currentPage = Math.min(Math.max(1, currentPage), totalPages);
     const startIdx = (currentPage - 1) * PAGE_SIZE;
     const endIdx = Math.min(startIdx + PAGE_SIZE, totalItems);
     const pageRows = sortedRows.slice(startIdx, endIdx);
 
     const station = activeStation || bestStation;
     if (!station) return;
-    const isBest = bestStation && station.id === bestStation.id;
-
-    const routeUrl =
-      `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}` +
-      (currentUserPos
-        ? `&origin=${currentUserPos.lat},${currentUserPos.lng}`
-        : "");
-
-    const activePriceText =
-      station.price != null ? formatBrl(station.price) : "Sem preço";
-    const activeDistText =
-      station.dist != null
-        ? `${formatNum(station.dist)} km de você`
-        : "Cuiabá · MT";
-
     const tank = currentVehicle?.tank || 50;
-    const activeFullPrice =
-      station.full != null
-        ? station.full
-        : station.price != null
-          ? station.price * tank
-          : null;
-    const activeHalfPrice =
-      station.half != null
-        ? station.half
-        : activeFullPrice != null
-          ? activeFullPrice / 2
-          : null;
+    const scrollTop = container.querySelector(".sheet-scroll-content")?.scrollTop || 0;
 
-    const vehicleOptions = allVehicles
-      .map(
-        (v, i) =>
-          `<option value="${i}" ${i === currentVehicleIdx ? "selected" : ""}>${v.name} (${v.tank}L)</option>`,
-      )
-      .join("");
+    const listTitle = isSortBoth
+      ? "Mais baratos e mais perto"
+      : isSortDist
+        ? "Mais perto de você"
+        : "Do menor para o maior preço";
 
     container.innerHTML = `
-      <!-- Cabeçalho Fixo do Bottom Sheet -->
-      <div class="sheet-drag-area border-b border-slate-100 bg-white sticky top-0 z-20 shrink-0">
-        <div class="sheet-drag-handle"></div>
-
-        <div class="flex items-center justify-between gap-2.5 pt-1.5 pb-2 px-4 sm:px-5">
-          <div class="flex items-center gap-2 min-w-0 flex-1">
-            <span class="w-8 h-8 rounded-xl bg-emerald-950/10 text-[#0e7048] flex items-center justify-center text-sm font-black shrink-0">
-              <i data-lucide="fuel" class="w-4 h-4 text-[#0e7048]"></i>
-            </span>
-            <div class="min-w-0 shrink-0">
-              <h3 class="text-sm font-extrabold text-slate-900 leading-tight truncate">${fuelName}</h3>
-              <p class="text-[10px] font-semibold text-slate-500">${totalItems} postos</p>
-            </div>
-
-            <!-- Seletor de Carro ao lado da logo -->
-            <div class="flex items-center gap-1 min-w-0 ml-1.5 flex-1 max-w-[190px]">
-              <i data-lucide="car" class="w-3.5 h-3.5 text-[#0e7048] shrink-0"></i>
-              <select
-                id="sheetExpandedVehicleSel"
-                class="w-full text-xs font-bold bg-slate-100 hover:bg-slate-200/80 text-slate-800 border border-slate-200 rounded-lg px-2 py-1 outline-none cursor-pointer truncate shadow-2xs"
-              >
-                ${vehicleOptions}
-              </select>
-            </div>
+      <div class="sheet-head">
+        <button type="button" class="sheet-grip" id="sheetGripBtn" aria-label="Recolher a lista"></button>
+        <div class="sheet-title">
+          <div>
+            <h3>${UI.esc(fuelName())}</h3>
+            <p>${totalItems} ${totalItems === 1 ? "posto" : "postos"}${hideNoPrice ? " com preço" : ""} em Cuiabá</p>
           </div>
-
-          <button
-            id="sheetCloseBtn"
-            type="button"
-            title="Recolher tela"
-            aria-label="Recolher tela"
-            class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
-          >
-            <i data-lucide="chevron-down" class="w-4 h-4"></i>
-          </button>
+          <button id="sheetCloseBtn" type="button" class="btn-icon" aria-label="Recolher a lista">${UI.icon("chevron-down")}</button>
         </div>
 
-        <!-- Seletor de Ordenação: Menor Preço & Mais Perto (Ambos selecionáveis!) -->
-        <div class="flex flex-wrap items-center justify-between gap-2 py-2 px-4 sm:px-5 border-t border-slate-100">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <span class="text-xs font-bold text-slate-600">Filtros:</span>
-          </div>
-          <div class="flex flex-wrap items-center justify-end gap-1.5">
-            <button
-              id="sortPriceBtn"
-              type="button"
-              class="sort-pill-btn ${isSortPrice ? "is-active" : ""}"
-              title="Filtrar por menor preço"
-            >
-              <i data-lucide="badge-percent" class="w-3.5 h-3.5"></i>
-              <span>Menor preço</span>
-            </button>
-
-            <button
-              id="sortDistBtn"
-              type="button"
-              class="sort-pill-btn ${isSortDist ? "is-active" : ""}"
-              title="Filtrar por mais perto"
-            >
-              <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
-              <span>Mais perto</span>
-            </button>
-
-            <button
-              id="hideNoPriceBtn"
-              type="button"
-              class="sort-pill-btn ${hideNoPrice ? "is-active" : ""}"
-              aria-pressed="${hideNoPrice}"
-              title="Ocultar postos sem preço"
-            >
-              <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
-              <span>Ocultar sem preço</span>
-            </button>
-          </div>
+        <div class="sheet-filters">
+          <span>Filtros:</span>
+          <button id="sortPriceBtn" type="button" class="chip" aria-pressed="${isSortPrice}">${UI.icon("check")}<span>Menor preço</span></button>
+          <button id="sortDistBtn" type="button" class="chip" aria-pressed="${isSortDist}">${UI.icon("check")}<span>Mais perto</span></button>
+          <button id="hideNoPriceBtn" type="button" class="chip" aria-pressed="${hideNoPrice}">${UI.icon("check")}<span>Ocultar sem preço</span></button>
         </div>
 
         ${
-          (isSortDist || isSortBoth) && !currentUserPos
-            ? `
-          <div id="sheetGpsAlert" class="mx-4 sm:mx-5 my-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between cursor-pointer">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <i data-lucide="locate-fixed" class="w-3.5 h-3.5 text-amber-700 shrink-0"></i>
-              <span class="font-medium truncate">Ative o GPS para calcular distância exata</span>
-            </div>
-            <span class="font-bold underline text-[#0e7048] shrink-0 ml-2">Ativar GPS</span>
-          </div>
-        `
+          isSortDist && !currentUserPos
+            ? `<p id="sheetGpsAlert" class="note-warn" role="button" tabindex="0">${UI.icon("locate-fixed")}<span>Para ordenar por distância, ative a localização.</span><b>Ativar</b></p>`
             : ""
         }
       </div>
 
-      <!-- Área de Rolagem do Conteúdo com espaçamento confortável -->
-      <div class="sheet-scroll-content flex-1 min-h-0 overflow-y-auto scroll-thin px-4 sm:px-5 py-4 space-y-3.5">
-        <!-- 1. Card do Posto em Destaque Selecionado -->
-        <div class="rounded-2xl border-2 ${isBest ? "border-[#0e7048] bg-gradient-to-br from-emerald-950/5 to-white" : "border-slate-300 bg-white"} p-4 sm:p-5 shadow-sm">
-          <div class="flex items-center justify-between gap-2 mb-2">
-            <div class="flex items-center gap-1.5">
-              <span class="px-2.5 py-1 rounded-full ${isBest ? "bg-[#0e7048] text-white shadow-sm" : "bg-slate-700 text-white"} font-black text-[10px] tracking-wide uppercase flex items-center gap-1.5">
-                <i data-lucide="${isBest ? "star" : "check-circle"}" class="w-3 h-3 ${isBest ? "fill-amber-300 text-amber-300" : "text-slate-300"}"></i>
-                <span>${isBest ? "MENOR PREÇO" : "Posto Selecionado"}</span>
-              </span>
-              <span class="px-2.5 py-1 rounded-full bg-slate-200/90 text-slate-800 font-bold text-[10px] uppercase">${station.brand}</span>
-            </div>
-            <span class="text-xs font-bold text-[#0e7048]">${activeDistText}</span>
-          </div>
-
-          <div class="flex items-baseline justify-between gap-3 mt-1.5">
-            <div class="min-w-0 flex-1">
-              <h4 class="text-base font-extrabold text-slate-900 leading-tight truncate">${station.name}</h4>
-              <p class="text-xs text-slate-600 truncate mt-1">${station.address}</p>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-2xl font-black text-slate-900 tabular-nums">${activePriceText}</div>
-              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">por litro</div>
-            </div>
-          </div>
-
-          <!-- Simulação do Posto em Destaque -->
-          <div class="mt-3 pt-2.5 border-t border-slate-100 grid grid-cols-2 gap-2">
-            <div class="rounded-xl bg-emerald-50/90 border border-emerald-200/80 p-2 text-center">
-              <div class="text-[10px] font-bold text-[#0e7048] uppercase tracking-wide flex items-center justify-center gap-1">
-                <i data-lucide="fuel" class="w-3 h-3 text-[#0e7048]"></i>
-                <span>Tanque cheio (${tank}L)</span>
-              </div>
-              <div class="text-sm sm:text-base font-black text-emerald-950 mt-0.5 tabular-nums">
-                ${activeFullPrice != null ? formatBrl(activeFullPrice) : "—"}
-              </div>
-            </div>
-            <div class="rounded-xl bg-amber-50/90 border border-amber-200/80 p-2 text-center">
-              <div class="text-[10px] font-bold text-amber-700 uppercase tracking-wide flex items-center justify-center gap-1">
-                <i data-lucide="gauge" class="w-3 h-3 text-amber-600"></i>
-                <span>Meio tanque (${tank / 2}L)</span>
-              </div>
-              <div class="text-sm sm:text-base font-black text-amber-950 mt-0.5 tabular-nums">
-                ${activeHalfPrice != null ? formatBrl(activeHalfPrice) : "—"}
-              </div>
-            </div>
-          </div>
-
-          ${
-            !isBest && bestStation
-              ? `
-            <div class="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span class="text-slate-500">Menor preço da cidade: <strong>${formatBrl(bestStation.price)}</strong></span>
-              <button id="sheetBackToBestBtn" type="button" class="font-extrabold text-[#0e7048] hover:underline cursor-pointer">Ver menor preço</button>
-            </div>
-          `
-              : ""
-          }
-
-          <!-- Botão Traçar Rota no Posto Selecionado -->
-          <div class="mt-3.5">
-            <a
-              href="${routeUrl}"
-              target="_blank"
-              rel="noopener"
-              class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#0e7048] hover:bg-[#095436] active:scale-[0.98] text-white font-black text-xs shadow-md transition-all cursor-pointer"
-            >
-              <i data-lucide="navigation" class="w-4 h-4 text-white"></i>
-              <span>Traçar rota no GPS</span>
-            </a>
-          </div>
+      <div class="sheet-scroll-content scroll-thin">
+        <div class="sheet-selected">
+          ${summaryHtml(station, { vehicleSelId: "sheetExpandedVehicleSel", showAll: false })}
         </div>
 
-        <!-- 2. Cabeçalho da Lista de Postos com Paginação -->
-        <div class="pt-2 px-0.5 flex items-center justify-between">
-          <div class="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500">
-            <i data-lucide="${isSortBoth ? "sparkles" : isSortDist ? "map-pin" : "badge-percent"}" class="w-3.5 h-3.5 text-[#0e7048]"></i>
-            <span>${isSortBoth ? "Menor preço & Mais perto" : isSortDist ? "Postos mais próximos" : "Postos por menor preço"}</span>
-          </div>
-          <span class="text-[11px] text-slate-400 font-semibold">10 por página</span>
+        <div class="sheet-list-head">
+          <h4>${listTitle}</h4>
         </div>
 
-        <!-- 3. Lista dos 10 Postos da Página Atual -->
-        <div class="space-y-2.5">
+        <ol class="rows">
           ${pageRows
-            .map((s, idx) => {
-              const globalIndex = startIdx + idx;
-              const isSelected = s.id === station.id;
-              const isRankBest = globalIndex === 0;
-              const price = s.price != null ? formatBrl(s.price) : "Sem preço";
-              const dist = s.dist != null ? `${formatNum(s.dist)} km` : "—";
-              const sFull =
-                s.full != null
-                  ? s.full
-                  : s.price != null
-                    ? s.price * tank
-                    : null;
-              const sHalf =
-                s.half != null ? s.half : sFull != null ? sFull / 2 : null;
-              const stRouteUrl =
-                `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}` +
-                (currentUserPos
-                  ? `&origin=${currentUserPos.lat},${currentUserPos.lng}`
-                  : "");
-
-              return `
-              <div
-                data-station-card="${s.id}"
-                class="rounded-xl border p-3.5 sm:p-4 transition-all cursor-pointer ${
-                  isSelected
-                    ? "border-[#0e7048] bg-emerald-950/5 ring-2 ring-[#0e7048]/20 shadow-sm"
-                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70"
-                }"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <div class="flex items-start gap-2.5 min-w-0 flex-1">
-                    <!-- Número do Ranking Geral -->
-                    <span class="w-6 h-6 rounded-lg font-black text-xs flex items-center justify-center shrink-0 mt-0.5 ${
-                      isRankBest
-                        ? "bg-amber-400 text-emerald-950 font-black"
-                        : globalIndex < 3
-                          ? "bg-emerald-950/10 text-[#0e7048] font-bold"
-                          : "bg-slate-100 text-slate-600 font-bold"
-                    }">
-                      ${globalIndex + 1}
-                    </span>
-
-                    <div class="min-w-0 flex-1">
-                      <div class="flex items-center gap-1.5 flex-wrap">
-                        <span class="text-xs font-black text-slate-900 truncate">${s.name}</span>
-                        <span class="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-extrabold text-[9px] uppercase">${s.brand}</span>
-                      </div>
-                      <p class="text-[11px] text-slate-500 truncate mt-0.5">${s.address}</p>
-
-                      <div class="flex items-center gap-2 mt-1 text-[11px] font-semibold text-slate-500">
-                        <span class="flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3 text-slate-400"></i><span>${dist}</span></span>
-                        ${s.gnv ? '<span class="text-[#0e7048] font-bold">· GNV</span>' : ""}
-                      </div>
-
-                      ${
-                        sFull != null
-                          ? `
-                        <div class="mt-1 text-[10.5px] font-bold text-slate-600 flex items-center gap-2 flex-wrap">
-                          <span class="text-emerald-700">Tanque: <strong>${formatBrl(sFull)}</strong></span>
-                          <span class="text-slate-300">·</span>
-                          <span class="text-amber-700">Meio: <strong>${formatBrl(sHalf)}</strong></span>
-                        </div>
-                      `
-                          : ""
-                      }
-                    </div>
-                  </div>
-
-                  <!-- Preço e Ações Rápidas -->
-                  <div class="text-right shrink-0 flex flex-col items-end justify-between">
-                    <span class="text-base font-black text-slate-900 tabular-nums">${price}</span>
-
-                    <div class="flex items-center gap-1 mt-1.5">
-                      <button
-                        data-focus-map="${s.id}"
-                        type="button"
-                        title="Ver no mapa"
-                        class="px-2 py-1 rounded-lg bg-emerald-950/10 hover:bg-emerald-950/20 text-[#0e7048] font-extrabold text-[10px] transition active:scale-95 cursor-pointer border border-[#0e7048]/30 flex items-center gap-1"
-                      >
-                        <i data-lucide="map" class="w-3 h-3"></i>
-                        <span>Mapa</span>
-                      </button>
-
-                      <a
-                        href="${stRouteUrl}"
-                        target="_blank"
-                        rel="noopener"
-                        title="Traçar rota no GPS"
-                        class="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition active:scale-95 cursor-pointer"
-                      >
-                        <i data-lucide="navigation" class="w-3.5 h-3.5"></i>
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            `;
-            })
+            .map((s, idx) =>
+              UI.stationRow(s, {
+                rank: startIdx + idx + 1,
+                selected: s.id === station.id,
+                best: bestStation && s.id === bestStation.id,
+                brl: formatBrl,
+                num: formatNum,
+                tank,
+              }),
+            )
             .join("")}
-        </div>
+        </ol>
 
-        <!-- 4. Barra de Paginação (10 em 10 - Inquebrável em telas menores) -->
-        <div class="mt-4 pt-3 border-t border-slate-200/90 flex items-center justify-between gap-2 text-xs">
-          <span class="text-slate-500 font-semibold text-[11px] whitespace-nowrap shrink-0">
-            <strong>${totalItems ? startIdx + 1 : 0}–${endIdx}</strong> de <strong>${totalItems}</strong><span class="hidden sm:inline"> postos</span>
-          </span>
-          <div class="flex items-center gap-1 shrink-0">
-            <button
-              id="sheetPrevBtn"
-              type="button"
-              title="Página anterior"
-              class="h-8 px-2 sm:px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-slate-700 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
-              ${currentPage === 1 ? "disabled" : ""}
-            >
-              <i data-lucide="chevron-left" class="w-4 h-4"></i>
-              <span class="hidden sm:inline text-xs">Anterior</span>
-            </button>
-
-            <span class="h-8 px-2 sm:px-2.5 flex items-center justify-center font-extrabold text-slate-800 text-xs bg-slate-100 rounded-lg whitespace-nowrap">
-              ${currentPage} / ${totalPages}
-            </span>
-
-            <button
-              id="sheetNextBtn"
-              type="button"
-              title="Próxima página"
-              class="h-8 px-2 sm:px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-slate-700 flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
-              ${currentPage === totalPages ? "disabled" : ""}
-            >
-              <span class="hidden sm:inline text-xs">Próxima</span>
-              <i data-lucide="chevron-right" class="w-4 h-4"></i>
-            </button>
-          </div>
-        </div>
+        ${UI.pager({ prefix: "sheet", start: startIdx, end: endIdx, total: totalItems, page: currentPage, pages: totalPages, noun: "postos" })}
       </div>
     `;
 
-    // Eventos do modo expandido
-    container
-      .querySelector("#sheetCloseBtn")
-      ?.addEventListener("click", () => collapse());
+    const scrollBox = container.querySelector(".sheet-scroll-content");
+    if (scrollBox) scrollBox.scrollTop = scrollTop;
 
-    const expVehicleSel = container.querySelector("#sheetExpandedVehicleSel");
-    if (expVehicleSel) {
-      expVehicleSel.addEventListener("change", (e) => {
-        const idx = parseInt(e.target.value, 10);
-        if (!isNaN(idx) && typeof onVehicleChangeCb === "function") {
-          currentVehicleIdx = idx;
-          if (allVehicles[idx]) currentVehicle = allVehicles[idx];
-          onVehicleChangeCb(idx);
-        }
-      });
-    }
+    container.querySelector("#sheetCloseBtn")?.addEventListener("click", () => collapse());
+    container.querySelector("#sheetGripBtn")?.addEventListener("click", () => collapse());
+    bindSummary("sheetExpandedVehicleSel");
 
-    // Botões de navegação de página
-    container.querySelector("#sheetPrevBtn")?.addEventListener("click", () => {
-      if (currentPage > 1) {
-        currentPage--;
-        render();
-        container
-          .querySelector(".sheet-scroll-content")
-          ?.scrollTo({ top: 0, behavior: "smooth" });
-      }
-    });
+    const goToPage = (delta) => {
+      currentPage += delta;
+      render();
+      container.querySelector(".sheet-scroll-content")?.scrollTo({ top: 0 });
+    };
+    container.querySelector("#sheetPrevBtn")?.addEventListener("click", () => goToPage(-1));
+    container.querySelector("#sheetNextBtn")?.addEventListener("click", () => goToPage(1));
 
-    container.querySelector("#sheetNextBtn")?.addEventListener("click", () => {
-      if (currentPage < totalPages) {
-        currentPage++;
-        render();
-        container
-          .querySelector(".sheet-scroll-content")
-          ?.scrollTo({ top: 0, behavior: "smooth" });
-      }
-    });
+    // "Menor preço" e "Mais perto" podem ficar ligados juntos; um dos dois está sempre ligado
+    function toggleSort(target) {
+      let price = isSortPrice;
+      let dist = isSortDist;
+      if (target === "price") price = price && dist ? false : true;
+      else dist = price && dist ? false : true;
 
-    function toggleFilter(target) {
-      const hadPrice = currentSort === "price" || currentSort === "both";
-      const hadDist = currentSort === "dist" || currentSort === "both";
-
-      let nextPrice = hadPrice;
-      let nextDist = hadDist;
-
-      if (target === "price") {
-        if (hadPrice && hadDist) {
-          nextPrice = false; // Desmarca menor preço, mantém mais perto
-        } else if (!hadPrice) {
-          nextPrice = true; // Marca menor preço, agora ambos estão ativos!
-        }
-      } else if (target === "dist") {
-        if (hadPrice && hadDist) {
-          nextDist = false; // Desmarca mais perto, mantém menor preço
-        } else if (!hadDist) {
-          nextDist = true; // Marca mais perto, agora ambos estão ativos!
-        }
-      }
-
-      let newSort = "price";
-      if (nextPrice && nextDist) newSort = "both";
-      else if (nextDist) newSort = "dist";
-      else newSort = "price";
-
+      const newSort = price && dist ? "both" : dist ? "dist" : "price";
       currentSort = newSort;
       currentPage = 1;
 
-      if (
-        (newSort === "dist" || newSort === "both") &&
-        !currentUserPos &&
-        typeof onRequestGpsCb === "function"
-      ) {
+      if (newSort !== "price" && !currentUserPos && typeof onRequestGpsCb === "function") {
         onRequestGpsCb();
       }
-      if (typeof onSortChangeCb === "function") {
-        onSortChangeCb(newSort);
-      }
+      if (typeof onSortChangeCb === "function") onSortChangeCb(newSort);
       render();
     }
+    container.querySelector("#sortPriceBtn")?.addEventListener("click", () => toggleSort("price"));
+    container.querySelector("#sortDistBtn")?.addEventListener("click", () => toggleSort("dist"));
 
-    // Botões de ordenação (suporta selecionar ambos!)
     container.querySelector("#hideNoPriceBtn")?.addEventListener("click", () => {
       hideNoPrice = !hideNoPrice;
       currentPage = 1;
-      if (typeof onHideNoPriceChangeCb === "function")
-        onHideNoPriceChangeCb(hideNoPrice);
+      if (typeof onHideNoPriceChangeCb === "function") onHideNoPriceChangeCb(hideNoPrice);
       render();
     });
 
-    container
-      .querySelector("#sortPriceBtn")
-      ?.addEventListener("click", () => toggleFilter("price"));
-    container
-      .querySelector("#sortDistBtn")
-      ?.addEventListener("click", () => toggleFilter("dist"));
-
-    container
-      .querySelector("#sheetBackToBestBtn")
-      ?.addEventListener("click", () => {
-        if (bestStation) {
-          activeStation = bestStation;
-          if (typeof onSelectStationCb === "function")
-            onSelectStationCb(bestStation);
-          render();
-        }
-      });
-
-    container.querySelector("#sheetGpsAlert")?.addEventListener("click", () => {
-      if (typeof onRequestGpsCb === "function") onRequestGpsCb();
+    const gpsAlert = container.querySelector("#sheetGpsAlert");
+    const askGps = () => typeof onRequestGpsCb === "function" && onRequestGpsCb();
+    gpsAlert?.addEventListener("click", askGps);
+    gpsAlert?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") askGps();
     });
 
-    // Clique em cada card de posto na lista
-    container.querySelectorAll("[data-station-card]").forEach((card) => {
-      card.addEventListener("click", (e) => {
-        if (e.target.closest("a")) return;
-
-        const sId = card.dataset.stationCard;
-        const station = stationRows.find((s) => s.id === sId);
-        if (station) {
-          activeStation = station;
-          if (typeof onSelectStationCb === "function") {
-            onSelectStationCb(station);
-          }
-          if (e.target.closest("[data-focus-map]")) {
-            collapse();
-          } else {
-            render();
-          }
+    // Tocar num posto da lista: seleciona e mostra no mapa
+    container.querySelectorAll(".row-station").forEach((row) => {
+      row.addEventListener("click", () => {
+        const picked = stationRows.find((s) => s.id === row.dataset.stationId);
+        if (!picked) return;
+        activeStation = picked;
+        if (typeof onSelectStationCb === "function") onSelectStationCb(picked);
+        if (isDocked()) {
+          render();
+          container.querySelector(".sheet-scroll-content")?.scrollTo({ top: 0 });
+        } else {
+          collapse();
         }
       });
     });
@@ -946,9 +484,15 @@ const BottomSheet = (() => {
   }
 
   function hide() {
-    if (container) container.classList.add("is-hidden");
+    if (container) {
+      container.classList.add("is-hidden");
+      container.classList.remove("is-expanded");
+    }
     if (backdrop) backdrop.classList.add("is-hidden");
     isExpanded = false;
+    activeStation = null;
+    bestStation = null;
+    syncHeight();
   }
 
   return {
