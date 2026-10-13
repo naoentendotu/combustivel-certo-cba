@@ -130,9 +130,7 @@
     });
     menu.addEventListener('click', e => {
       const opcao = e.target.closest('[data-city]');
-      if (!opcao) return;
-      menu.hidePopover();
-      setCity(opcao.dataset.city);
+      if (opcao) toggleCity(opcao.dataset.city); // o menu fica aberto para marcar a outra
     });
   }
 
@@ -276,21 +274,28 @@
 
   const placeLabel = () => CITIES.find(c => c.id === state.city)?.label || CITIES.map(c => c.label).join(' e ');
 
-  // Botão de cidade (no mapa e na lista) e o menu que ele abre
+  // Botões de cidade (no mapa e na lista) e o menu com as duas cidades, que podem ficar marcadas juntas
   function renderCityControls() {
-    const label = document.getElementById('mapCityLabel');
-    if (label) label.textContent = placeLabel();
+    const rotulo = 'Cidades: ' + placeLabel();
+    document.querySelectorAll('.city-btn').forEach(btn => {
+      btn.classList.toggle('is-filtered', !!state.city);
+      btn.setAttribute('aria-label', rotulo);
+      btn.title = rotulo;
+    });
     const menu = document.getElementById('cityMenu');
     if (menu) {
-      const opcoes = [{ id: '', label: 'Cuiabá e Várzea Grande' }, ...CITIES];
-      menu.innerHTML = opcoes.map(c =>
-        `<button type="button" role="menuitemradio" data-city="${c.id}" aria-checked="${c.id === state.city}">${UI.icon('check')}<span>${UI.esc(c.label)}</span></button>`
+      menu.innerHTML = CITIES.map(c =>
+        `<button type="button" role="menuitemcheckbox" data-city="${c.id}" aria-checked="${!state.city || c.id === state.city}">${UI.icon('check')}<span>${UI.esc(c.label)}</span></button>`
       ).join('');
     }
   }
 
-  function setCity(id) {
-    state.city = CITIES.some(c => c.id === id) ? id : '';
+  // Liga ou desliga uma cidade; pelo menos uma fica sempre marcada
+  function toggleCity(id) {
+    const outra = CITIES.find(c => c.id !== id).id;
+    if (!state.city) state.city = outra;          // as duas marcadas: desmarca esta
+    else if (state.city === id) return;           // é a única marcada: continua
+    else state.city = '';                         // marca a que faltava
     state.activeId = null;
     savePrefs();
     render();
@@ -302,7 +307,6 @@
   function render() {
     const { rows, best, fuel, vehicle, vehicleIdx, trend } = compute();
     const place = placeLabel();
-    renderCityControls();
 
     MapView.renderMarkers(rows, best?.id, state.activeId, brl);
 
@@ -355,6 +359,7 @@
       hideNoPrice: state.hideNoPrice,
       status: state.pricesStatus
     });
+    renderCityControls();
 
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       window.lucide.createIcons();

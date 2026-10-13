@@ -299,9 +299,12 @@ const ListView = (() => {
             <div class="brandline">
               <img src="assets/logo-icon.png" alt="" />
               <span class="wordmark">Combustível <b>Certo</b></span>
-              <button type="button" class="place" popovertarget="cityMenu" aria-label="Escolher a cidade" title="Escolher a cidade">${UI.icon("map-pin")}<span>${UI.esc(p.place || "Cuiabá")}</span>${UI.icon("chevron-down")}</button>
+              <span class="place">${UI.esc(p.place || "Cuiabá")}</span>
             </div>
-            <div id="listFuelTabs">${UI.fuelSeg(fuels, fuel.id, "seg-block")}</div>
+            <div class="fuel-row">
+              <div id="listFuelTabs">${UI.fuelSeg(fuels, fuel.id, "seg-block")}</div>
+              <button type="button" class="city-btn" popovertarget="cityMenu">${UI.icon("map-pin")}</button>
+            </div>
           </div>
         </header>
 

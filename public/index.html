@@ -23,7 +23,7 @@
     <!-- Web Awesome: só o tema e os componentes usados (seletor, barra de faixa e campos) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/styles/themes/default.css" />
     <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/webawesome.loader.js"></script>
-    <link rel="stylesheet" href="css/app.css?v=10" />
+    <link rel="stylesheet" href="css/app.css?v=11" />
   </head>
 
   <body>
@@ -34,13 +34,9 @@
           <div class="map-bar">
             <img src="assets/logo-icon.png" alt="Combustível Certo" />
             <div id="mapFloatingFuels"></div>
+            <button id="mapCityBtn" type="button" class="city-btn" popovertarget="cityMenu"><i data-lucide="map-pin"></i></button>
           </div>
           <div class="map-chips">
-            <button id="mapCityBtn" type="button" class="map-chip" popovertarget="cityMenu" aria-label="Escolher a cidade" title="Escolher a cidade">
-              <i data-lucide="map-pin"></i>
-              <span id="mapCityLabel">Cuiabá e Várzea Grande</span>
-              <i data-lucide="chevron-down" class="chev"></i>
-            </button>
             <button id="top10QuickBtn" type="button" class="map-chip">
               <i data-lucide="trending-up"></i>
               <span>10 mais baratos</span>
@@ -161,18 +157,18 @@
     </div>
     <div id="grafTip" class="graf-tip hidden"></div>
 
-    <!-- Escolha da cidade: as duas (padrão), só Cuiabá ou só Várzea Grande -->
+    <!-- Cidades mostradas: Cuiabá e Várzea Grande, as duas marcadas por padrão -->
     <div id="cityMenu" class="menu" popover role="menu" aria-label="Cidade"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="js/data/stations-data.js?v=10"></script>
-    <script src="js/calc.js?v=10"></script>
-    <script src="js/components/ui.js?v=10"></script>
-    <script src="js/components/map-view.js?v=10"></script>
-    <script src="js/components/bottom-sheet.js?v=10"></script>
-    <script src="js/components/list-view.js?v=10"></script>
-    <script src="js/components/modals.js?v=10"></script>
-    <script src="js/components/nav.js?v=10"></script>
-    <script src="js/app.js?v=10"></script>
+    <script src="js/data/stations-data.js?v=11"></script>
+    <script src="js/calc.js?v=11"></script>
+    <script src="js/components/ui.js?v=11"></script>
+    <script src="js/components/map-view.js?v=11"></script>
+    <script src="js/components/bottom-sheet.js?v=11"></script>
+    <script src="js/components/list-view.js?v=11"></script>
+    <script src="js/components/modals.js?v=11"></script>
+    <script src="js/components/nav.js?v=11"></script>
+    <script src="js/app.js?v=11"></script>
   </body>
 </html>

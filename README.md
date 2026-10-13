@@ -17,7 +17,7 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 
 ### Principais funcionalidades
 - **Mapa (tela inicial):** cada posto é um marcador com o preço. O menor preço fica em verde cheio; o terço mais barato aparece em verde e o terço mais caro, apagado. Preço fora da última semana pesquisada vem em âmbar com ícone de atenção.
-- **Cidade:** por padrão o app mostra Cuiabá e Várzea Grande juntas. O botão de cidade, no mapa e na lista, deixa escolher só uma delas; a escolha vale para o mapa, a lista, a tendência da semana e o ranking, e fica salva no navegador.
+- **Cidade:** por padrão o app mostra Cuiabá e Várzea Grande juntas. O botão com o pino, ao lado das opções de combustível no mapa e na lista, abre as duas cidades para marcar ou desmarcar (pelo menos uma fica marcada); a escolha vale para o mapa, a lista, a tendência da semana e o ranking, e fica salva no navegador.
 - **Painel do mapa:** no celular é uma folha inferior com o posto selecionado (preço, data da coleta, custo do tanque e rota) que abre para a lista; no desktop a lista fica fixa ao lado do mapa. Filtros: *Menor preço*, *Mais perto* e *Ocultar sem preço* (ligado por padrão, atrás do botão de filtros).
 - **Lista:** o menor preço do momento em destaque, com a diferença para a média, e todos os postos em ordem, cada um com a data da coleta. Filtros por faixa de preço (barra de duas pontas), bandeira (chips) e bairro (seletor).
 - **Histórico de preço:** em qualquer posto com preço, o botão de histórico abre o gráfico e as coletas da ANP daquele posto em 1 mês ou em todo o histórico.
