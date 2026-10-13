@@ -826,6 +826,10 @@ wa-select:not(:defined), wa-slider:not(:defined), wa-input:not(:defined) { visib
   background: var(--line-2);
 }
 .sheet-peek { padding: 2px 16px 14px; }
+/* Folha abaixada: só o topo do posto, até o preço */
+.bottom-sheet.is-mini .summary-head ~ *,
+.bottom-sheet.is-mini .sheet-peek > .hint { display: none; }
+.bottom-sheet.is-mini .sheet-peek { cursor: pointer; }
 
 .sheet-head { flex: none; border-bottom: 1px solid var(--line); }
 .sheet-title {

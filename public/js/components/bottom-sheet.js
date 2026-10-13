@@ -9,6 +9,7 @@ const BottomSheet = (() => {
 
   // Estado interno
   let isExpanded = false;
+  let isMini = false; // folha abaixada: só o topo do posto, até o preço
   let currentSort = "price"; // 'price' | 'dist' | 'both'
   let hideNoPrice = true;
   let filtersOpen = false;
@@ -114,7 +115,10 @@ const BottomSheet = (() => {
         const deltaTime = Date.now() - touchStartTime;
 
         if (!isExpanded && (deltaY < -35 || (deltaY < -20 && deltaTime < 250))) {
-          expand();
+          if (isMini) setMini(false);
+          else expand();
+        } else if (!isExpanded && !isMini && (deltaY > 35 || (deltaY > 20 && deltaTime < 250))) {
+          setMini(true);
         } else if (isExpanded && (deltaY > 45 || (deltaY > 25 && deltaTime < 250))) {
           const scrollBox = container.querySelector(".sheet-scroll-content");
           if (!scrollBox || scrollBox.scrollTop <= 10) collapse();
@@ -166,9 +170,16 @@ const BottomSheet = (() => {
     render();
   }
 
+  // Abaixa a folha recolhida para sobrar mais mapa em telas baixas
+  function setMini(on) {
+    isMini = on;
+    render();
+  }
+
   function expand() {
     if (isDocked()) return;
     isExpanded = true;
+    isMini = false;
     container?.classList.add("is-expanded");
     backdrop?.classList.remove("is-hidden");
     render();
@@ -205,6 +216,7 @@ const BottomSheet = (() => {
     else renderCollapsed();
 
     container.classList.remove("is-hidden");
+    container.classList.toggle("is-mini", isMini && !isExpanded && !isDocked());
     UI.icons();
     syncHeight();
   }
@@ -321,13 +333,17 @@ const BottomSheet = (() => {
     if (!station) return;
 
     container.innerHTML = `
-      <button type="button" class="sheet-grip" id="sheetPeekHeader" aria-label="Abrir a lista de postos"></button>
+      <button type="button" class="sheet-grip" id="sheetPeekHeader" aria-label="${isMini ? "Mostrar os detalhes do posto" : "Abrir a lista de postos"}"></button>
       <div class="sheet-peek">
         ${summaryHtml(station, { vehicleSelId: "sheetPeekVehicleSel", showAll: true })}
       </div>
     `;
 
-    container.querySelector("#sheetPeekHeader")?.addEventListener("click", () => expand());
+    container.querySelector("#sheetPeekHeader")?.addEventListener("click", () => (isMini ? setMini(false) : expand()));
+    // Abaixada, tocar no resumo (fora dos botões) traz os detalhes de volta
+    container.querySelector(".sheet-peek")?.addEventListener("click", (e) => {
+      if (isMini && !e.target.closest("button, a")) setMini(false);
+    });
     container.querySelector("#sheetExpandBtn")?.addEventListener("click", () => expand());
     bindSummary("sheetPeekVehicleSel");
   }
