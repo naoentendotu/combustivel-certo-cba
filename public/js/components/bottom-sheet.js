@@ -403,7 +403,8 @@ const BottomSheet = (() => {
 
     // Ordenação dos postos na lista
     const byDist = (a, b) => (a.dist ?? Infinity) - (b.dist ?? Infinity);
-    const byPrice = (a, b) => (a.price ?? Infinity) - (b.price ?? Infinity) || byDist(a, b);
+    const byPrice = (a, b) =>
+      (a.price ?? Infinity) - (b.price ?? Infinity) || byDist(a, b);
 
     let sortedRows = [...stationRows];
     if (currentSort === "dist") {
@@ -421,8 +422,10 @@ const BottomSheet = (() => {
         sortedByDist.forEach((r, idx) => distRanks.set(r.id, idx));
 
         sortedRows.sort((a, b) => {
-          const scoreA = (priceRanks.get(a.id) ?? 999) + (distRanks.get(a.id) ?? 999);
-          const scoreB = (priceRanks.get(b.id) ?? 999) + (distRanks.get(b.id) ?? 999);
+          const scoreA =
+            (priceRanks.get(a.id) ?? 999) + (distRanks.get(a.id) ?? 999);
+          const scoreB =
+            (priceRanks.get(b.id) ?? 999) + (distRanks.get(b.id) ?? 999);
           return scoreA - scoreB || byPrice(a, b) || byDist(a, b);
         });
       }
@@ -520,7 +523,6 @@ const BottomSheet = (() => {
         <div class="flex items-center justify-between gap-2 py-2 px-4 sm:px-5 border-t border-slate-100">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="text-xs font-bold text-slate-600">Ordenar por:</span>
-            ${isSortBoth ? '<span class="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-[#0e7048]">Menor Preço + Mais Perto</span>' : ''}
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
             <button
