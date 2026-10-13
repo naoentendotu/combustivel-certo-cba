@@ -5,6 +5,7 @@
   "description": "Postos de combustível de Cuiabá-MT com preços da pesquisa semanal da ANP",
   "engines": { "node": ">=20" },
   "scripts": {
+    "build": "echo 'Static build ready'",
     "start": "node server.js",
     "precos:atualizar": "node scripts/atualizar-precos.js",
     "precos:status": "node scripts/atualizar-precos.js --status",
