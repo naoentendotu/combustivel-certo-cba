@@ -11,6 +11,7 @@ const BottomSheet = (() => {
   let isExpanded = false;
   let currentSort = "price"; // 'price' | 'dist' | 'both'
   let hideNoPrice = true;
+  let filtersOpen = false;
   let activeStation = null;
   let bestStation = null;
   let stationRows = [];
@@ -38,6 +39,7 @@ const BottomSheet = (() => {
   let onHideNoPriceChangeCb = null;
   let onRequestGpsCb = null;
   let onVehicleChangeCb = null;
+  let onShowHistoryCb = null;
 
   // Gestos de toque
   let touchStartY = 0;
@@ -55,6 +57,7 @@ const BottomSheet = (() => {
     onHideNoPriceChange,
     onRequestGps,
     onVehicleChange,
+    onShowHistory,
   }) {
     container = document.getElementById(containerId);
     backdrop = document.getElementById(backdropId);
@@ -63,6 +66,7 @@ const BottomSheet = (() => {
     onHideNoPriceChangeCb = onHideNoPriceChange;
     onRequestGpsCb = onRequestGps;
     onVehicleChangeCb = onVehicleChange;
+    onShowHistoryCb = onShowHistory;
 
     if (!container) return;
 
@@ -218,10 +222,12 @@ const BottomSheet = (() => {
       ? `<span class="tag-best">Menor preço · ${UI.esc(fuelName())}</span>`
       : `<span>${UI.esc(station.brand)}${station.gnv ? " · GNV" : ""}</span>`;
     const dist =
-      station.dist != null ? `${formatNum(station.dist)} km de você` : "";
+      station.dist != null
+        ? `<span class="summary-dist" title="Distância até você">${UI.icon("map-pin")}${formatNum(station.dist)} km</span>`
+        : `<button type="button" class="summary-dist summary-dist-btn" data-ask-gps aria-label="Ativar a localização para ver a distância" title="Ativar a localização para ver a distância">${UI.icon("map-pin")}</button>`;
 
     return `
-      <div class="summary-top">${tag}<span>${dist}</span></div>
+      <div class="summary-top">${tag}${dist}</div>
       <div class="summary-head">
         <div style="min-width:0">
           <h3>${UI.esc(station.name)}</h3>
@@ -237,7 +243,7 @@ const BottomSheet = (() => {
       </div>
       ${
         station.stale
-          ? `<p class="note-warn summary-fresh">${UI.icon("triangle-alert")}<span>Atenção: este é o último preço registrado, de ${UI.esc(station.priceDate)}. O posto não entrou na última pesquisa da ANP.</span></p>`
+          ? `<p class="note-warn summary-fresh">${UI.icon("triangle-alert")}<span>Preço de ${UI.esc(station.priceDate)} · fora da última pesquisa da ANP</span></p>`
           : station.price != null
             ? `<p class="summary-fresh">${UI.freshness(station, { long: true })}</p>`
             : ""
@@ -245,7 +251,7 @@ const BottomSheet = (() => {
       ${
         diff != null && diff > 0.004
           ? `<div class="summary-compare">
-              <span>${formatBrl(diff)} acima do menor preço (${formatBrl(bestStation.price)})</span>
+              <span>+ ${formatBrl(diff)} que o menor preço</span>
               <button id="sheetBackToBestBtn" type="button" class="link">Ver o menor</button>
             </div>`
           : ""
@@ -257,7 +263,12 @@ const BottomSheet = (() => {
         </a>
         ${
           showAll
-            ? `<button id="sheetExpandBtn" type="button" class="btn btn-quiet">${UI.icon("list")}<span>Ver os ${stationRows.length}</span></button>`
+            ? `<button id="sheetExpandBtn" type="button" class="btn btn-quiet btn-square" aria-label="Ver todos os postos" title="Ver todos os postos">${UI.icon("list")}</button>`
+            : ""
+        }
+        ${
+          station.price != null
+            ? `<button type="button" class="btn btn-quiet btn-square" data-historico aria-label="Histórico de preço" title="Histórico de preço">${UI.icon("chart-line")}</button>`
             : ""
         }
       </div>
@@ -273,6 +284,15 @@ const BottomSheet = (() => {
         if (allVehicles[idx]) currentVehicle = allVehicles[idx];
         onVehicleChangeCb(idx);
       }
+    });
+
+    container.querySelector("[data-historico]")?.addEventListener("click", () => {
+      const station = activeStation || bestStation;
+      if (station && typeof onShowHistoryCb === "function") onShowHistoryCb(station);
+    });
+
+    container.querySelector("[data-ask-gps]")?.addEventListener("click", () => {
+      if (typeof onRequestGpsCb === "function") onRequestGpsCb();
     });
 
     container.querySelector("#sheetBackToBestBtn")?.addEventListener("click", () => {
@@ -368,10 +388,14 @@ const BottomSheet = (() => {
         </div>
 
         <div class="sheet-filters">
-          <span>Filtros:</span>
+          <button id="filtersToggleBtn" type="button" class="filter-toggle" aria-label="Mais filtros" title="Mais filtros" aria-expanded="${filtersOpen}">${UI.icon("sliders-horizontal")}</button>
           <button id="sortPriceBtn" type="button" class="chip" aria-pressed="${isSortPrice}">${UI.icon("check")}<span>Menor preço</span></button>
           <button id="sortDistBtn" type="button" class="chip" aria-pressed="${isSortDist}">${UI.icon("check")}<span>Mais perto</span></button>
-          <button id="hideNoPriceBtn" type="button" class="chip" aria-pressed="${hideNoPrice}">${UI.icon("check")}<span>Ocultar sem preço</span></button>
+          ${
+            filtersOpen
+              ? `<button id="hideNoPriceBtn" type="button" class="chip" aria-pressed="${hideNoPrice}">${UI.icon("check")}<span>Ocultar sem preço</span></button>`
+              : ""
+          }
         </div>
 
         ${
@@ -443,6 +467,12 @@ const BottomSheet = (() => {
     }
     container.querySelector("#sortPriceBtn")?.addEventListener("click", () => toggleSort("price"));
     container.querySelector("#sortDistBtn")?.addEventListener("click", () => toggleSort("dist"));
+
+    container.querySelector("#filtersToggleBtn")?.addEventListener("click", () => {
+      filtersOpen = !filtersOpen;
+      render();
+      container.querySelector("#filtersToggleBtn")?.focus();
+    });
 
     container.querySelector("#hideNoPriceBtn")?.addEventListener("click", () => {
       hideNoPrice = !hideNoPrice;

@@ -32,10 +32,10 @@ const UI = (() => {
     const dia = s.priceDate.slice(0, 5);
     if (s.stale) {
       return `<span class="fresh is-stale">${icon('triangle-alert')}<span>${long
-        ? `Atenção: último preço registrado, de ${esc(s.priceDate)}. Fora da última pesquisa da ANP.`
-        : `Atenção: preço de ${esc(dia)}`}</span></span>`;
+        ? `Preço de ${esc(s.priceDate)} · fora da última pesquisa`
+        : `Preço de ${esc(dia)}`}</span></span>`;
     }
-    return `<span class="fresh">Coleta ANP em ${esc(long ? s.priceDate : dia)}</span>`;
+    return `<span class="fresh" title="Preço coletado pela ANP em ${esc(s.priceDate)}">${icon('calendar-check')}<span>${long ? 'ANP · ' + esc(s.priceDate) : esc(dia)}</span></span>`;
   }
 
   function stationRow(s, { rank, selected, best, brl, num, tank }) {
@@ -70,8 +70,8 @@ const UI = (() => {
 
   function vehicleLine(id, vehicles, idx) {
     return `<div class="veh-line">
-      <label for="${id}">Simulação para</label>
-      <select id="${id}" class="select-inline">
+      ${icon('car')}
+      <select id="${id}" class="select-inline" aria-label="Veículo da simulação" title="Veículo da simulação">
         ${vehicles.map((v, i) => `<option value="${i}"${i === idx ? ' selected' : ''}>${esc(v.name)} (${v.tank} L)</option>`).join('')}
       </select>
     </div>`;
