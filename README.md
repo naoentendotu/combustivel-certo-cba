@@ -92,7 +92,8 @@ combustivel-certo/
 │   │       └── stations-data.js # Base geoespacial local de postos de Cuiabá e Várzea Grande (fallback)
 │   └── index.html           # Aplicação web principal de página única
 ├── scripts/
-│   └── atualizar-precos.js  # CLI para atualizar preços e consultar status da base
+│   ├── atualizar-precos.js  # CLI para atualizar preços e consultar status da base
+│   └── resumo-coleta.js     # Resumo da coleta (antes x depois) para o PR da rotina semanal
 ├── test/
 │   ├── anp-ao-vivo.test.js  # Testes de integração ao vivo contra o portal da ANP
 │   ├── helpers.js           # Gerador de planilhas e mocks para testes
@@ -250,5 +251,9 @@ O projeto está estruturado para deploy simples e direto no Vercel.
 ### Limitações operacionais na Vercel (Importante)
 - **Sistema de arquivos efêmero (read-only):** O Vercel executa Serverless Functions em ambientes que não persistem alterações no sistema de arquivos em disco entre execuções. A base `data/precos.json` é servida como snapshot estático empacotado no deploy.
 - **Agendamento em background:** O agendador semanal (`agendarSemanal` via `setTimeout`) só funciona em servidores de execução contínua (como VPS, Docker ou máquinas locais). No Vercel, o processo é finalizado após responder a requisição.
-- **Estratégia recomendada para atualização em produção no Vercel:**
-  - Configurar um **GitHub Actions** semanal agendado (cron) que executa `npm run precos:atualizar`, commita `data/precos.json` caso haja novidade e dispara o redeploy automático do Vercel.
+- **Atualização em produção (rotina semanal):** `.github/workflows/atualizar-precos.yml` roda todo dia às 08:00 de Cuiabá no GitHub Actions.
+  - Executa `scripts/atualizar-precos.js`; se a ANP ainda não publicou semana nova, termina sem fazer nada.
+  - Havendo novidade, abre um **PR** com o `data/precos.json` atualizado. A descrição traz o resumo gerado por `scripts/resumo-coleta.js`: semanas importadas, registros por cidade, menor/média/maior por combustível e alerta para preço fora de R$ 2 a R$ 15 por litro.
+  - Nada entra na `main` sem aprovação. Ao aceitar o PR, o Vercel republica o site com os dados novos.
+  - Também pode ser disparada à mão em *Actions → Atualizar preços da ANP → Run workflow*.
+  - Requer, em *Settings → Actions → General → Workflow permissions*, a opção **Allow GitHub Actions to create and approve pull requests**.
