@@ -209,8 +209,8 @@
   }
 
   // Tutorial da primeira visita. Num link compartilhado fica para a próxima, para não tirar a pessoa do posto do link
-  function startTour() {
-    if (store.get(TOUR_KEY) || state.activeId) return;
+  function startTour(again = false) {
+    if (!again && (store.get(TOUR_KEY) || state.activeId)) return;
     const wait = ms => new Promise(r => setTimeout(r, ms));
     const docked = () => matchMedia('(min-width: 1024px)').matches;
     const sheet = async pos => { if (!docked()) { BottomSheet.snapTo(pos); await wait(450); } };
@@ -514,6 +514,7 @@
 
     if (viewMap) viewMap.classList.toggle('is-hidden', viewName !== 'map');
     if (viewList) viewList.classList.toggle('is-hidden', viewName !== 'list');
+    document.getElementById('viewHelp')?.classList.toggle('is-hidden', viewName !== 'help');
 
     if (viewName === 'map') MapView.invalidateSize();
 
@@ -673,6 +674,8 @@
       store.set(TREND_KEY, { ...store.get(TREND_KEY), [state.fuel]: state.pricesWeekId });
       render();
     });
+
+    document.getElementById('tourAgainBtn')?.addEventListener('click', () => startTour(true));
 
     document.getElementById('top10QuickBtn')?.addEventListener('click', () => {
       Modals.abrirTop10(state.fuel, state.city, placeLabel());
