@@ -935,6 +935,8 @@ wa-select:not(:defined), wa-slider:not(:defined), wa-input:not(:defined) { visib
 }
 .sheet-list-head h4 { margin: 0; font-size: 15px; font-weight: 600; }
 .sheet-scroll-content .rows { margin: 0 -8px; }
+.sheet-list-preview { flex: none; padding: 0 16px; border-top: 1px solid var(--line); pointer-events: none; }
+.sheet-list-preview .rows { margin: 0 -8px; }
 .sheet-scroll-content .pager { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 
 /* --------------------------------------------------------------------------
@@ -998,9 +1000,7 @@ wa-select:not(:defined), wa-slider:not(:defined), wa-input:not(:defined) { visib
 .brandline .wordmark { white-space: nowrap; }
 .fuel-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .fuel-row > div { flex: 1; min-width: 0; }
-.fuel-row .seg { margin-top: 0; }
 .fuel-row .city-btn { border: 1px solid var(--line); }
-.page-head .seg { margin-top: 12px; }
 
 /* Placa de preço: o menor preço do momento */
 .totem {

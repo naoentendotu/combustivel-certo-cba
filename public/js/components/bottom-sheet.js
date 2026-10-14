@@ -195,6 +195,14 @@ const BottomSheet = (() => {
           container.classList.add("is-dragging");
           container.classList.remove("is-mini");
           container.style.maxHeight = "none";
+          // A lista já vem por baixo do resumo enquanto a folha sobe; o render ao parar a troca pela de verdade
+          if (!isExpanded) {
+            const station = activeStation || bestStation;
+            container.insertAdjacentHTML(
+              "beforeend",
+              `<div class="sheet-list-preview" aria-hidden="true">${listHtml(station, sortRows().slice(0, PAGE_SIZE), 0)}</div>`,
+            );
+          }
         }
         const now = Date.now();
         if (now > drag.lastT) drag.v = (y - drag.lastY) / (now - drag.lastT); // px/ms, positivo para baixo
@@ -477,6 +485,35 @@ const BottomSheet = (() => {
     return sorted;
   }
 
+  function listHtml(station, pageRows, startIdx) {
+    const listTitle =
+      currentSort === "both"
+        ? "Mais baratos e mais perto"
+        : currentSort === "dist"
+          ? "Mais perto de você"
+          : "Do menor para o maior preço";
+    const tank = currentVehicle?.tank || 50;
+    return `
+        <div class="sheet-list-head">
+          <h4>${listTitle}</h4>
+        </div>
+
+        <ol class="rows">
+          ${pageRows
+            .map((s, idx) =>
+              UI.stationRow(s, {
+                rank: startIdx + idx + 1,
+                selected: s.id === station.id,
+                best: bestStation && s.id === bestStation.id,
+                brl: formatBrl,
+                num: formatNum,
+                tank,
+              }),
+            )
+            .join("")}
+        </ol>`;
+  }
+
   function renderExpanded() {
     const isSortBoth = currentSort === "both";
     const isSortPrice = currentSort === "price" || isSortBoth;
@@ -492,14 +529,7 @@ const BottomSheet = (() => {
 
     const station = activeStation || bestStation;
     if (!station) return;
-    const tank = currentVehicle?.tank || 50;
     const scrollTop = container.querySelector(".sheet-scroll-content")?.scrollTop || 0;
-
-    const listTitle = isSortBoth
-      ? "Mais baratos e mais perto"
-      : isSortDist
-        ? "Mais perto de você"
-        : "Do menor para o maior preço";
 
     container.innerHTML = `
       <div class="sheet-head">
@@ -535,24 +565,7 @@ const BottomSheet = (() => {
           ${summaryHtml(station, { vehicleSelId: "sheetExpandedVehicleSel", showAll: false })}
         </div>
 
-        <div class="sheet-list-head">
-          <h4>${listTitle}</h4>
-        </div>
-
-        <ol class="rows">
-          ${pageRows
-            .map((s, idx) =>
-              UI.stationRow(s, {
-                rank: startIdx + idx + 1,
-                selected: s.id === station.id,
-                best: bestStation && s.id === bestStation.id,
-                brl: formatBrl,
-                num: formatNum,
-                tank,
-              }),
-            )
-            .join("")}
-        </ol>
+        ${listHtml(station, pageRows, startIdx)}
 
         ${UI.pager({ prefix: "sheet", start: startIdx, end: endIdx, total: totalItems, page: currentPage, pages: totalPages, noun: "postos" })}
       </div>
