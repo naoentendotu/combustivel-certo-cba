@@ -23,7 +23,7 @@
     <!-- Web Awesome: só o tema e os componentes usados (seletor, barra de faixa e campos) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/styles/themes/default.css" />
     <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/webawesome.loader.js"></script>
-    <link rel="stylesheet" href="css/app.css?v=12" />
+    <link rel="stylesheet" href="css/app.css?v=13" />
   </head>
 
   <body>
@@ -66,6 +66,56 @@
       <!-- Lista -->
       <section id="viewList" class="view-panel is-hidden scroll-thin" style="overflow-y: auto" aria-label="Lista de postos"></section>
 
+      <!-- Dúvidas: como usar o app, em perguntas curtas -->
+      <section id="viewHelp" class="view-panel is-hidden scroll-thin" style="overflow-y: auto" aria-label="Dúvidas">
+        <div class="page">
+          <header class="page-head">
+            <div class="page-inner">
+              <div class="brandline">
+                <img src="assets/logo-icon.png" alt="" />
+                <span class="wordmark">Combustível <b>Certo</b></span>
+              </div>
+            </div>
+          </header>
+          <div class="page-inner faq">
+            <h2>Dúvidas</h2>
+            <details>
+              <summary>De onde vêm os preços?</summary>
+              <p>Da pesquisa semanal da ANP, a agência do petróleo. A cada semana ela visita uma parte dos postos de Cuiabá e Várzea Grande, por isso nem todo posto tem preço.</p>
+            </details>
+            <details>
+              <summary>O que querem dizer as cores das etiquetas?</summary>
+              <p>Verde cheia é o menor preço agora. Preço em verde está entre os mais baratos e preço apagado entre os mais caros. Etiqueta amarela é preço de uma semana anterior, que pode ter mudado.</p>
+            </details>
+            <details>
+              <summary>Etanol ou gasolina: qual compensa?</summary>
+              <p>Com gasolina ou etanol selecionado, toque em <b>Etanol ou gasolina?</b> no card do posto. Aparece quanto você economiza por km e no tanque cheio com cada um. O botão só aparece em posto com os dois preços.</p>
+            </details>
+            <details>
+              <summary>Como calcular o tanque do meu carro?</summary>
+              <p>No card do posto, escolha o seu carro no seletor ou toque em <b>Adicionar meu carro</b> e informe o tamanho do tanque. O custo de encher o tanque passa a usar esse valor.</p>
+            </details>
+            <details>
+              <summary>Como ver os postos mais perto?</summary>
+              <p>Toque no botão de localização no mapa e permita o acesso. Cada posto passa a mostrar a distância, e a lista pode ordenar por <b>Mais perto</b>.</p>
+            </details>
+            <details>
+              <summary>Como chegar ao posto?</summary>
+              <p>No card do posto, toque em <b>Traçar rota</b> para abrir o caminho no seu app de mapas. Também dá para copiar o endereço ou compartilhar o preço com alguém.</p>
+            </details>
+            <details>
+              <summary>O preço subiu ou caiu?</summary>
+              <p>O botão de gráfico no card mostra o histórico de preço do posto. No mapa, <b>10 mais baratos</b> mostra o ranking da cidade e como o preço andou nas últimas semanas.</p>
+            </details>
+            <details>
+              <summary>Posso ver só uma cidade?</summary>
+              <p>Sim. Toque no botão de cidade, ao lado dos combustíveis, e deixe marcada só Cuiabá ou só Várzea Grande.</p>
+            </details>
+            <button id="tourAgainBtn" type="button" class="btn btn-primary">Ver o tutorial de novo</button>
+          </div>
+        </div>
+      </section>
+
       <nav class="bottom-nav" aria-label="Seções">
         <img class="nav-brand" src="assets/logo-icon.png" alt="Combustível Certo" />
         <button type="button" data-nav-tab="map" class="nav-tab-btn is-active">
@@ -75,6 +125,10 @@
         <button type="button" data-nav-tab="list" class="nav-tab-btn">
           <i data-lucide="list"></i>
           <span>Lista</span>
+        </button>
+        <button type="button" data-nav-tab="help" class="nav-tab-btn">
+          <i data-lucide="circle-help"></i>
+          <span>Dúvidas</span>
         </button>
       </nav>
     </div>
@@ -161,14 +215,15 @@
     <div id="cityMenu" class="menu" popover role="menu" aria-label="Cidade"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="js/data/stations-data.js?v=12"></script>
-    <script src="js/calc.js?v=12"></script>
-    <script src="js/components/ui.js?v=12"></script>
-    <script src="js/components/map-view.js?v=12"></script>
-    <script src="js/components/bottom-sheet.js?v=12"></script>
-    <script src="js/components/list-view.js?v=12"></script>
-    <script src="js/components/modals.js?v=12"></script>
-    <script src="js/components/nav.js?v=12"></script>
-    <script src="js/app.js?v=12"></script>
+    <script src="js/data/stations-data.js?v=13"></script>
+    <script src="js/calc.js?v=13"></script>
+    <script src="js/components/ui.js?v=13"></script>
+    <script src="js/components/map-view.js?v=13"></script>
+    <script src="js/components/bottom-sheet.js?v=13"></script>
+    <script src="js/components/list-view.js?v=13"></script>
+    <script src="js/components/modals.js?v=13"></script>
+    <script src="js/components/nav.js?v=13"></script>
+    <script src="js/components/tour.js?v=13"></script>
+    <script src="js/app.js?v=13"></script>
   </body>
 </html>

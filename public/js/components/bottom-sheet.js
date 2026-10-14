@@ -671,6 +671,7 @@ const BottomSheet = (() => {
     collapse,
     toggle,
     hide,
+    snapTo: (target) => snapTo(target),
     isExpanded: () => isExpanded,
   };
 })();
