@@ -64,8 +64,10 @@ const MapView = (() => {
     const faixa = p => (precos.length < 6 || corteAlto === corteBaixo ? "" : p <= corteBaixo ? " tier-low" : p >= corteAlto ? " tier-high" : "");
     const alertSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
 
+    // Empate no menor preço: todos os postos com esse valor ganham a tag verde
+    const bestPrice = rows.find(r => r.id === bestId)?.price;
     for (const r of rows) {
-      const isBest = r.id === bestId;
+      const isBest = r.id === bestId || (bestPrice != null && r.price === bestPrice && !r.stale);
       const isActive = r.id === activeId;
       const classes = "map-pin"
         + (r.price == null ? " map-pin-none" : faixa(r.price))
