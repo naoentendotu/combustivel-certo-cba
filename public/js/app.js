@@ -7,6 +7,7 @@
   const PREFS_KEY = 'cc_prefs_v1';
   const GPS_HINT_KEY = 'cc_gps_hint_v1';
   const ANP_KEY = 'cc_anp_v1';
+  const TOUR_KEY = 'cc_tutorial_visto_v1';
   const TREND_KEY = 'cc_tendencia_lida_v1'; // por combustível, a semana cujo aviso de tendência a pessoa já fechou
   const ANP_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const ANP_URL = location.protocol === 'file:' ? null : 'api/anp';
@@ -199,11 +200,92 @@
         centeredOnBest = true;
         MapView.focusLocation(best.lat, best.lng, 14);
       }
+      if (best) setTimeout(startTour, 800);
     } catch (err) {
       console.warn('[Combustível Certo] Preços da ANP indisponíveis:', err);
       state.pricesStatus = 'error';
       render();
     }
+  }
+
+  // Tutorial da primeira visita. Num link compartilhado fica para a próxima, para não tirar a pessoa do posto do link
+  function startTour() {
+    if (store.get(TOUR_KEY) || state.activeId) return;
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const docked = () => matchMedia('(min-width: 1024px)').matches;
+    const sheet = async pos => { if (!docked()) { BottomSheet.snapTo(pos); await wait(450); } };
+    let movedActive = false;
+
+    Navigation.switchTab('map');
+    Tour.start([
+      {
+        target: '.map-pin-best',
+        title: 'O menor preço fica em verde',
+        text: 'Cada etiqueta no mapa é um posto com o preço do litro. A verde é o mais barato agora. Toque em qualquer uma para ver o posto.',
+        prep: async () => {
+          await sheet('peek');
+          const { best } = compute();
+          if (!best) return false;
+          MapView.focusLocation(best.lat, best.lng, 14);
+          await wait(700);
+        }
+      },
+      {
+        target: '#bottomSheet .hint',
+        title: 'Etanol ou gasolina?',
+        text: 'Carro flex? Toque aqui e veja o que compensa mais neste posto: quanto você economiza por km e no tanque cheio.',
+        below: true,
+        // O botão só existe em posto com os dois preços: se o do card não tiver, mostra o mais barato que tem
+        prep: async () => {
+          await sheet('peek');
+          if (document.querySelector('#bottomSheet .hint')) return;
+          if (state.fuel !== 'gasolina' && state.fuel !== 'etanol') return false;
+          const flex = compute().rows.find(r => r.flex && r.price != null);
+          if (!flex) return false;
+          state.activeId = flex.id;
+          movedActive = true;
+          render();
+        },
+        open: btn => document.getElementById(btn.getAttribute('popovertarget'))?.showPopover()
+      },
+      {
+        target: '#bottomSheet .summary-actions',
+        title: 'Vá até o posto',
+        text: 'Traçar rota abre o caminho no seu app de mapas. Ao lado ficam o histórico de preço e o compartilhar.' + (docked() ? '' : ' Puxe o card para cima para ver todos os postos.'),
+        prep: () => sheet('peek')
+      },
+      {
+        target: '#mapFloatingFuels',
+        title: 'Escolha o combustível',
+        text: 'Gasolina, etanol ou diesel: os preços do mapa e do card mudam juntos.'
+      },
+      {
+        target: '#mapCityBtn',
+        title: 'Escolha a cidade',
+        text: 'Veja os postos de Cuiabá, de Várzea Grande ou das duas cidades juntas.'
+      },
+      {
+        target: '#bottomSheet .veh-line',
+        title: 'O seu carro',
+        text: 'Escolha o seu carro, ou adicione o tamanho do tanque dele, para o custo de encher o tanque ficar certo.',
+        prep: async () => {
+          await sheet('full'); // na folha baixa o seletor pode ficar escondido
+          document.querySelector('#bottomSheet .veh-line')?.scrollIntoView({ block: 'center' });
+        }
+      },
+      {
+        target: '#floatingGpsBtn',
+        title: 'Postos perto de você',
+        text: 'Toque aqui para o mapa ir até você. Com a localização ligada, cada posto mostra a distância e a lista ordena pelos mais perto.',
+        prep: () => sheet('peek')
+      }
+    ], () => {
+      store.set(TOUR_KEY, true);
+      if (movedActive) {
+        state.activeId = null;
+        render();
+      }
+    });
   }
 
   function compute() {

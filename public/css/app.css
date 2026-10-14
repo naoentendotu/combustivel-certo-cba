@@ -1249,3 +1249,32 @@ wa-select:not(:defined), wa-slider:not(:defined), wa-input:not(:defined) { visib
     box-shadow: 0 0 0 4px rgba(14, 112, 72, 0.3), var(--shadow-float);
   }
 }
+
+/* --------------------------------------------------------------------------
+   Tutorial da primeira visita: a tela escurece e só o item explicado fica aceso
+   -------------------------------------------------------------------------- */
+.tour-veil { position: fixed; inset: 0; z-index: 1400; }
+.tour-on #mapNotice { display: none; } /* o aviso da semana espera o tutorial acabar */
+.tour-hole {
+  position: fixed;
+  z-index: 1401;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(22, 33, 28, 0.55);
+  outline: 2px solid var(--green);
+  pointer-events: none;
+}
+.tour-box {
+  position: fixed;
+  z-index: 1402;
+  width: min(320px, calc(100vw - 32px));
+  padding: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--r-lg);
+  box-shadow: 0 8px 28px rgba(22, 33, 28, 0.28);
+}
+.tour-box h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+.tour-box p { margin: 0; font-size: 14.5px; line-height: 1.45; color: var(--ink-2); }
+.tour-nav { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.tour-nav small { margin-right: auto; font-size: 12.5px; color: var(--ink-3); }
+
