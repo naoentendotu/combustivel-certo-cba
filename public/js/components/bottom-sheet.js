@@ -539,7 +539,7 @@ const BottomSheet = (() => {
             <h3>${UI.esc(fuelName())}</h3>
             <p>${totalItems} ${totalItems === 1 ? "posto" : "postos"}${hideNoPrice ? " com preço" : ""} em ${UI.esc(currentPlace)}</p>
           </div>
-          <button id="sheetCloseBtn" type="button" class="btn-icon" aria-label="Recolher a lista">${UI.icon("chevron-down")}</button>
+          <button id="sheetCloseBtn" type="button" class="btn-icon" aria-label="Minimizar">${UI.icon("chevron-down")}</button>
         </div>
 
         <div class="sheet-filters">
@@ -574,7 +574,7 @@ const BottomSheet = (() => {
     const scrollBox = container.querySelector(".sheet-scroll-content");
     if (scrollBox) scrollBox.scrollTop = scrollTop;
 
-    container.querySelector("#sheetCloseBtn")?.addEventListener("click", () => snapTo("peek"));
+    container.querySelector("#sheetCloseBtn")?.addEventListener("click", () => snapTo("mini"));
     container.querySelector("#sheetGripBtn")?.addEventListener("click", () => snapTo("peek"));
     bindSummary("sheetExpandedVehicleSel");
 
