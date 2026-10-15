@@ -29,7 +29,7 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 - **Estados:** carregamento, erro (com "Tentar de novo") e vazio explicados no mapa, na lista, no histórico e no ranking.
 
 ### Implementações futuras
-- **Rota desenhada no mapa:** traçar o trajeto de carro até o posto selecionado (ou o destacado) dentro do próprio mapa, com um servidor próprio do [OSRM](https://github.com/Project-OSRM/osrm-backend). Hoje o botão "Traçar rota" abre o trajeto no Google Maps.
+- **Preços enviados pelos usuários:** uma base de dados colaborativa em que quem abastece informa o preço que viu no posto, para manter os valores atualizados entre uma pesquisa da ANP e outra e cobrir os postos que a ANP não visita. Antes de ser exibido, cada preço passa por validação: reconhecimento óptico de caracteres (OCR) da foto da placa ou da bomba, confirmação de outros usuários e checagem de faixa de preço aceitável.
 
 ### Fonte de dados e limitações
 1. **Cadastro dos postos:** Obtido via API de Revendedores da ANP (`/api/anp`), mapeado com coordenadas geográficas de Cuiabá e Várzea Grande.

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://combustivel-certo.vercel.app/sitemap.xml
