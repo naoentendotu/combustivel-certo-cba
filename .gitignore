@@ -22,3 +22,6 @@ Thumbs.db
 
 # Vercel CLI
 .vercel/
+
+# Vídeo de divulgação (projeto Remotion, scripts e renders): fica só local
+video/
