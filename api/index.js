@@ -17,7 +17,7 @@ module.exports = (req, res) => {
     JSON.stringify({
       nome: "Combustível Certo API",
       status: "online",
-      rotas: ["/api/anp", "/api/precos", "/api/precos/status"],
+      rotas: ["/api/anp", "/api/precos", "/api/precos/status", "/api/contribuicoes"],
     })
   );
 };

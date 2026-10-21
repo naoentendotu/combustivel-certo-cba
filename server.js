@@ -4,11 +4,13 @@
 //   /api/anp             cadastro de postos de Cuiabá e Várzea Grande (API de Revendedores da ANP, que não aceita chamadas do navegador)
 //   /api/precos          preços por posto em Cuiabá e Várzea Grande/MT (base local alimentada pela coleta semanal da ANP)
 //   /api/precos/status   situação da coleta: última execução, semanas importadas, histórico de tentativas
+//   /api/contribuicoes   preços informados pelos usuários (GET lista, POST envia)
 // Uso:  node server.js   →   http://localhost:8080
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const precos = require("./lib/anp-precos");
+const contribuicoes = require("./lib/contribuicoes");
 
 /* ------------------------------------------------------- Cadastro de postos */
 const ANP_URL = "https://revendedoresapi.anp.gov.br/v1/combustivel";
@@ -38,6 +40,7 @@ function criarServidor({
   fetchImpl = fetch,
   log = console.log,
 } = {}) {
+  const contrib = contribuicoes.criarServico({ dataDir, fetchImpl });
   let cadastro = { ts: 0, body: null };
   async function getCadastro() {
     if (!cadastro.body || Date.now() - cadastro.ts > CADASTRO_CACHE_MS) {
@@ -114,12 +117,18 @@ function criarServidor({
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
       });
       return res.end();
     }
     const url = new URL(req.url, "http://localhost");
+    if (url.pathname === "/api/contribuicoes")
+      return json(res, async () =>
+        req.method === "POST"
+          ? contrib.enviar(await contribuicoes.lerCorpo(req), contribuicoes.ipDe(req))
+          : contrib.listar(),
+      );
     if (req.method !== "GET" && req.method !== "HEAD")
       return res.writeHead(405).end();
     if (url.pathname === "/api/anp") return json(res, getCadastro);

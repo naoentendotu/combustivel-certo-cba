@@ -271,3 +271,5 @@ if (typeof window !== 'undefined') {
   window.VEHICLES = VEHICLES;
   window.FUELS = FUELS;
 }
+// O servidor usa as coordenadas para conferir se quem informa um preço está no posto
+if (typeof module !== 'undefined') module.exports = { ANP_SNAPSHOT, ANP_SNAPSHOT_VG, FUELS };
