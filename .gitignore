@@ -25,3 +25,7 @@ Thumbs.db
 
 # Vídeo de divulgação (projeto Remotion, scripts e renders): fica só local
 video/
+
+# Anotações pessoais (fora do git)
+COMO-FUNCIONA.md
+MUDANCAS.md
