@@ -26,10 +26,8 @@ Encontrar o combustível mais barato exige comparar valores dispersos pela cidad
 - **Tendência da semana:** um aviso no mapa e na lista, que a pessoa fecha depois de ler, com quanto o preço médio subiu ou caiu em relação à semana anterior, comparando só os postos pesquisados nas duas semanas.
 - **Compartilhar:** envia o preço de um posto pelo compartilhamento do celular (ou WhatsApp), com um link que abre o app naquele posto.
 - **Meu carro:** no seletor de veículo, a pessoa adiciona o próprio carro com o tamanho do tanque; ele fica salvo no navegador e pode ser editado ou removido.
+- **Preços enviados pelos usuários:** sem cadastro, quem está no posto (até 300 m, pelo GPS) informa o preço digitando ou tirando foto da placa; a foto é lida no próprio celular (OCR com Tesseract.js) e nunca é enviada. O preço precisa estar na faixa de ±25% da média da ANP e fica *pendente* até outra pessoa, de outro aparelho e outra rede, informar o mesmo valor em até 48 h. Envios somem em 7 dias e há limite de 10 por rede por hora. Fica em Upstash Redis (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` e `CONTRIB_SAL` para o hash do IP); sem essas variáveis, o `server.js` local guarda em memória.
 - **Estados:** carregamento, erro (com "Tentar de novo") e vazio explicados no mapa, na lista, no histórico e no ranking.
-
-### Implementações futuras
-- **Preços enviados pelos usuários:** uma base de dados colaborativa em que quem abastece informa o preço que viu no posto, para manter os valores atualizados entre uma pesquisa da ANP e outra e cobrir os postos que a ANP não visita. Antes de ser exibido, cada preço passa por validação: reconhecimento óptico de caracteres (OCR) da foto da placa ou da bomba, confirmação de outros usuários e checagem de faixa de preço aceitável.
 
 ### Fonte de dados e limitações
 1. **Cadastro dos postos:** Obtido via API de Revendedores da ANP (`/api/anp`), mapeado com coordenadas geográficas de Cuiabá e Várzea Grande.
