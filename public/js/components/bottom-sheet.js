@@ -41,6 +41,7 @@ const BottomSheet = (() => {
   let onVehicleChangeCb = null;
   let onShowHistoryCb = null;
   let onShareCb = null;
+  let onReportCb = null;
 
   // Arrasto da folha: ela acompanha o dedo e, ao soltar, desliza até a posição mais próxima
   let drag = null; // { y0, t0, h0, mini, peek, full, moved, lastY, lastT, v }
@@ -62,6 +63,7 @@ const BottomSheet = (() => {
     onVehicleChange,
     onShowHistory,
     onShare,
+    onReport,
   }) {
     container = document.getElementById(containerId);
     backdrop = document.getElementById(backdropId);
@@ -72,6 +74,7 @@ const BottomSheet = (() => {
     onVehicleChangeCb = onVehicleChange;
     onShowHistoryCb = onShowHistory;
     onShareCb = onShare;
+    onReportCb = onReport;
 
     if (!container) return;
 
@@ -379,6 +382,7 @@ const BottomSheet = (() => {
             </div>`
           : ""
       }
+      ${contribHtml(station.contrib)}
       ${station.price != null ? UI.tank(station, tank, formatBrl) + UI.vehicleLine(vehicleSelId, allVehicles, currentVehicleIdx) : ""}
       <div class="summary-actions">
         <a class="btn btn-primary" href="${UI.routeUrl(station, currentUserPos)}" target="_blank" rel="noopener">
@@ -395,8 +399,21 @@ const BottomSheet = (() => {
               <button type="button" class="btn btn-quiet btn-square" data-compartilhar aria-label="Compartilhar este preço" title="Compartilhar este preço">${UI.icon("share-2")}</button>`
             : ""
         }
+        <button type="button" class="btn btn-quiet btn-square" data-informar aria-label="Informar preço" title="Informar preço">${UI.icon("message-square-plus")}</button>
       </div>
     `;
+  }
+
+  // Preço informado por usuários no combustível escolhido; pendente pede a confirmação de quem está no posto
+  function contribHtml(c) {
+    if (!c) return "";
+    const h = Math.floor((Date.now() - c.ts) / 3600000);
+    const quando = h < 1 ? "agora há pouco" : h < 24 ? `há ${h} h` : `há ${Math.floor(h / 24)} d`;
+    return c.estado === "confirmado"
+      ? `<p class="summary-fresh">${UI.icon("users")}<span>Usuários informaram ${formatBrl(c.preco)} ${quando} · confirmado</span></p>`
+      : `<p class="summary-fresh">${UI.icon("users")}<span>Alguém informou ${formatBrl(c.preco)} ${quando}. Confere?</span>
+          <button type="button" class="link" data-confirmar>Confirmar</button>
+          <button type="button" class="link" data-informar>Está diferente</button></p>`;
   }
 
   function bindSummary(vehicleSelId) {
@@ -419,6 +436,14 @@ const BottomSheet = (() => {
       const station = activeStation || bestStation;
       if (station && typeof onShareCb === "function") onShareCb(station);
     });
+
+    container.querySelectorAll("[data-informar], [data-confirmar]").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const station = activeStation || bestStation;
+        if (station && typeof onReportCb === "function")
+          onReportCb(station, btn.hasAttribute("data-confirmar"));
+      }),
+    );
 
     container.querySelector("[data-ask-gps]")?.addEventListener("click", () => {
       if (typeof onRequestGpsCb === "function") onRequestGpsCb();

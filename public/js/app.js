@@ -9,6 +9,7 @@
   const ANP_KEY = "cc_anp_v1";
   const TOUR_KEY = "cc_tutorial_visto_v1";
   const TREND_KEY = "cc_tendencia_lida_v1"; // por combustível, a semana cujo aviso de tendência a pessoa já fechou
+  const DISP_KEY = "cc_aparelho_v1"; // id aleatório do aparelho: só separa quem confirma de quem informou
   const ANP_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const ANP_URL = location.protocol === "file:" ? null : "api/anp";
 
@@ -68,6 +69,7 @@
   const state = {
     stations: [],
     prices: {},
+    contribs: {}, // preços informados pelos usuários: { cnpj: { fuel: { preco, ts, estado } } }
     registros: [],
     pricesWeek: "",
     pricesWeekId: "",
@@ -432,6 +434,7 @@
         stale: !!p && p.semana !== state.pricesWeekId,
         priceDate: p ? String(p.data).split("-").reverse().join("/") : "",
         dist: state.userPos ? haversineKm(state.userPos, s) : null,
+        contrib: state.contribs[cnpj]?.[fuel.id] || null,
       };
     });
 
@@ -643,6 +646,150 @@
       );
   }
 
+  async function loadContribs() {
+    if (location.protocol === "file:") return;
+    try {
+      const res = await fetch("api/contribuicoes");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      state.contribs = await res.json();
+      render();
+    } catch (err) {
+      console.warn("[Combustível Certo] Preços de usuários indisponíveis:", err);
+    }
+  }
+
+  // Informar preço: digitado ou lido da foto; confirmar = enviar o mesmo valor pendente
+  let reportStation = null,
+    reportOcr = false;
+  const reportField = (id) => document.getElementById("informar-" + id);
+  const reportStatus = (t) =>
+    (document.getElementById("informarStatus").textContent = t);
+  const closeReportDialog = () =>
+    document.getElementById("modalInformar").classList.add("hidden");
+
+  function openReportDialog(station, confirmar) {
+    if (confirmar && station.contrib)
+      return sendReport(station, { [state.fuel]: station.contrib.preco });
+    reportStation = station;
+    reportOcr = false;
+    FUELS.forEach((f) => (reportField(f.id).value = ""));
+    document.getElementById("informarPosto").textContent = station.name;
+    reportStatus(
+      "Você precisa estar no posto. O preço aparece como confirmado quando outra pessoa informar o mesmo valor.",
+    );
+    document.getElementById("modalInformar").classList.remove("hidden");
+  }
+
+  const posicaoAtual = () =>
+    new Promise((ok, falha) =>
+      navigator.geolocation
+        ? navigator.geolocation.getCurrentPosition(ok, falha, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+          })
+        : falha(new Error("sem GPS")),
+    );
+
+  async function sendReport(station, precos, ocr = false) {
+    let disp = store.get(DISP_KEY);
+    if (!disp) store.set(DISP_KEY, (disp = crypto.randomUUID()));
+    let pos;
+    try {
+      pos = await posicaoAtual();
+    } catch {
+      return UI.toast("Ative a localização: o preço só pode ser informado no posto.");
+    }
+    try {
+      const res = await fetch("api/contribuicoes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cnpj: station.id.slice(4),
+          precos,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          disp,
+          ocr,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.erro || "HTTP " + res.status);
+      closeReportDialog();
+      UI.toast(
+        Object.values(j).some((e) => e?.estado === "confirmado")
+          ? "Obrigado! Preço confirmado."
+          : "Obrigado! O preço aparece confirmado quando outra pessoa informar o mesmo valor.",
+      );
+      loadContribs();
+    } catch (err) {
+      UI.toast("Não foi possível enviar: " + err.message);
+    }
+  }
+
+  // Tesseract.js só é baixado quando alguém escolhe uma foto
+  let tesseract = null;
+  const loadTesseract = () =>
+    (tesseract ||= new Promise((ok, falha) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+      s.onload = () => ok(window.Tesseract);
+      s.onerror = () => {
+        tesseract = null;
+        falha(new Error("não carregou o leitor de foto"));
+      };
+      document.head.append(s);
+    }));
+
+  async function readPhoto(file) {
+    reportStatus("Lendo a foto…");
+    try {
+      const worker = await (await loadTesseract()).createWorker("eng");
+      await worker.setParameters({ tessedit_char_whitelist: "0123456789.,R$ " });
+      const { data } = await worker.recognize(file);
+      await worker.terminate();
+      const lidos = Calc.precosDaFoto(data.text);
+      if (!lidos.length)
+        return reportStatus("Não achamos preços na foto. Digite os valores.");
+      // A placa não diz qual linha é qual combustível: preenche na ordem e a pessoa corrige
+      FUELS.filter((f) => !reportField(f.id).value).forEach((f, i) => {
+        if (lidos[i] != null) reportField(f.id).value = lidos[i];
+      });
+      reportOcr = true;
+      reportStatus("Confira cada valor e o combustível: a leitura da foto pode errar.");
+    } catch (err) {
+      reportStatus("Não foi possível ler a foto (" + err.message + "). Digite os valores.");
+    }
+  }
+
+  function bindReportDialog() {
+    const modal = document.getElementById("modalInformar");
+    document.getElementById("informarForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const precos = {};
+      for (const f of FUELS) {
+        const v = String(reportField(f.id).value || "").replace(",", ".");
+        if (v) precos[f.id] = Number(v);
+      }
+      if (!Object.keys(precos).length)
+        return UI.toast("Informe pelo menos um preço.");
+      sendReport(reportStation, precos, reportOcr);
+    });
+    document.getElementById("informarFoto").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      e.target.value = ""; // permite escolher a mesma foto de novo
+      if (file) readPhoto(file);
+    });
+    document
+      .getElementById("informarClose")
+      .addEventListener("click", closeReportDialog);
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeReportDialog();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeReportDialog();
+    });
+  }
+
   const showHistory = (station) =>
     Modals.abrirHistorico(station, state.fuel, state.registros);
 
@@ -796,6 +943,7 @@
       },
       onShowHistory: showHistory,
       onShare: shareStation,
+      onReport: openReportDialog,
       onVehicleChange: setVehicle,
     });
 
@@ -836,6 +984,7 @@
     });
 
     bindCarDialog();
+    bindReportDialog();
     bindCityMenu();
 
     document.getElementById("floatingGpsBtn")?.addEventListener("click", () => {
@@ -887,6 +1036,7 @@
     }
 
     loadPrices();
+    loadContribs();
 
     // Pede a localização logo ao abrir e leva o mapa até a pessoa.
     // Num link compartilhado o mapa fica no posto do link; a localização só serve para a distância.

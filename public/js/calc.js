@@ -37,7 +37,14 @@ const Calc = (() => {
     return { dif: media(atual) - media(anterior), media: media(atual), postos: comuns.length };
   }
 
-  return { flex, tendenciaSemana };
+  // Preços lidos (OCR) da foto da placa ou da bomba, na ordem em que aparecem, sem repetir: "6,19" ou "4.299"
+  function precosDaFoto(texto) {
+    const achados = String(texto).match(/(?<!\d)\d{1,2}[.,]\d{2,3}(?!\d)/g) || [];
+    const precos = achados.map(s => Number(s.replace(',', '.'))).filter(n => n >= 2 && n <= 15);
+    return [...new Set(precos)];
+  }
+
+  return { flex, tendenciaSemana, precosDaFoto };
 })();
 
 if (typeof module !== 'undefined') module.exports = Calc;

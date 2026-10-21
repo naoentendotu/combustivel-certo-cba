@@ -23,7 +23,7 @@
     <!-- Web Awesome: só o tema e os componentes usados (seletor, barra de faixa e campos) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/styles/themes/default.css" />
     <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/webawesome.loader.js"></script>
-    <link rel="stylesheet" href="css/app.css?v=13" />
+    <link rel="stylesheet" href="css/app.css?v=14" />
   </head>
 
   <body>
@@ -110,6 +110,10 @@
             <details>
               <summary>Posso ver só uma cidade?</summary>
               <p>Sim. Toque no botão de cidade, ao lado dos combustíveis, e deixe marcada só Cuiabá ou só Várzea Grande.</p>
+            </details>
+            <details>
+              <summary>O preço do posto está diferente. Posso avisar?</summary>
+              <p>Sim, sem cadastro. No card do posto, toque no botão de <b>Informar preço</b> e digite os valores ou tire uma foto da placa para o app ler. É preciso estar no posto, com a localização ligada. O preço aparece como confirmado quando outra pessoa informar o mesmo valor; até lá, quem passar pelo posto pode confirmar.</p>
             </details>
             <button id="tourAgainBtn" type="button" class="btn btn-primary">Ver o tutorial de novo</button>
           </div>
@@ -209,21 +213,47 @@
         </div>
       </form>
     </div>
+    <!-- Informar preço: digitado ou lido da foto da placa, sem cadastro -->
+    <div id="modalInformar" class="modal hidden">
+      <form id="informarForm" class="modal-box" role="dialog" aria-modal="true" aria-labelledby="informarTitle" style="max-width: 420px">
+        <header class="modal-head">
+          <div>
+            <h2 id="informarTitle">Informar preço</h2>
+            <p id="informarPosto"></p>
+          </div>
+          <button id="informarClose" type="button" class="btn-icon" aria-label="Fechar"><i data-lucide="x"></i></button>
+        </header>
+
+        <div class="modal-body">
+          <label class="btn btn-quiet">
+            <i data-lucide="camera"></i><span>Ler da foto da placa</span>
+            <input id="informarFoto" type="file" accept="image/*" capture="environment" class="hidden">
+          </label>
+          <p id="informarStatus" class="muted" aria-live="polite">Você precisa estar no posto. O preço aparece como confirmado quando outra pessoa informar o mesmo valor.</p>
+          <wa-input id="informar-gasolina" label="Gasolina (R$/litro)" type="number" min="2" max="15" step="0.001" inputmode="decimal" placeholder="Ex.: 6,19"></wa-input>
+          <wa-input id="informar-etanol" label="Etanol (R$/litro)" type="number" min="2" max="15" step="0.001" inputmode="decimal" placeholder="Ex.: 4,29"></wa-input>
+          <wa-input id="informar-diesel" label="Diesel S10 (R$/litro)" type="number" min="2" max="15" step="0.001" inputmode="decimal" placeholder="Ex.: 6,09"></wa-input>
+          <div class="summary-actions">
+            <button id="informarEnviar" type="submit" class="btn btn-primary">Enviar</button>
+          </div>
+        </div>
+      </form>
+    </div>
     <div id="grafTip" class="graf-tip hidden"></div>
 
     <!-- Cidades mostradas: Cuiabá e Várzea Grande, as duas marcadas por padrão -->
     <div id="cityMenu" class="menu" popover role="menu" aria-label="Cidade"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="js/data/stations-data.js?v=13"></script>
-    <script src="js/calc.js?v=13"></script>
-    <script src="js/components/ui.js?v=13"></script>
-    <script src="js/components/map-view.js?v=13"></script>
-    <script src="js/components/bottom-sheet.js?v=13"></script>
-    <script src="js/components/list-view.js?v=13"></script>
-    <script src="js/components/modals.js?v=13"></script>
-    <script src="js/components/nav.js?v=13"></script>
-    <script src="js/components/tour.js?v=13"></script>
-    <script src="js/app.js?v=13"></script>
+    <script src="js/data/stations-data.js?v=14"></script>
+    <script src="js/calc.js?v=14"></script>
+    <script src="js/components/ui.js?v=14"></script>
+    <script src="js/components/map-view.js?v=14"></script>
+    <script src="js/components/bottom-sheet.js?v=14"></script>
+    <script src="js/components/list-view.js?v=14"></script>
+    <script src="js/components/modals.js?v=14"></script>
+    <script src="js/components/nav.js?v=14"></script>
+    <script src="js/components/tour.js?v=14"></script>
+    <script src="js/app.js?v=14"></script>
   </body>
 </html>
