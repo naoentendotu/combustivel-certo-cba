@@ -18,10 +18,25 @@ const semana2 = () => planilhaAnp({ linhas: [
 const lerBase = dir => JSON.parse(fs.readFileSync(path.join(dir, 'precos.json'), 'utf8'));
 
 test('encontra a planilha mais recente pela semana de referência, não pela posição do link', () => {
-  const lista = precos.listarPlanilhas(pagina(['revendas_lpc_2026-09-20_2026-09-26.xlsx', S2, S1]));
-  assert.deepEqual(lista.map(p => p.id), ['2026-10-04_2026-10-10', '2026-09-27_2026-10-03', '2026-09-20_2026-09-26']);
-  assert.equal(lista[0].url, urlPlanilha(S2));
+  const S3 = 'revendas_lpc_2026_10_11-2026_10_17.xlsx'; // formato com "_" nas datas, usado pela ANP a partir de out/2026
+  const lista = precos.listarPlanilhas(pagina(['revendas_lpc_2026-09-20_2026-09-26.xlsx', S2, S3, S1]));
+  assert.deepEqual(lista.map(p => p.id), ['2026-10-11_2026-10-17', '2026-10-04_2026-10-10', '2026-09-27_2026-10-03', '2026-09-20_2026-09-26']);
+  assert.equal(lista[0].url, urlPlanilha(S3));
   assert.ok(lista.every(p => !/resumo_semanal/.test(p.url)), 'não deve pegar a planilha de preços médios');
+});
+
+test('a semana vem do título na página quando o nome do arquivo não traz a data', async () => {
+  const dir = pastaTemp(), S3 = 'revendas_lpc-5.xlsx';
+  const html = pagina([S2]).replace('<html><body>', `<html><body><p><strong><span>11/10/2026</span> a 17/10/2026</strong></p>
+    <ul><li><a href="${urlPlanilha(S3)}">Preços por posto revendedor (combustíveis automotivos e GLP P13)</a> <em>(Atualizado em 20/10/2026)</em></li></ul>`);
+  assert.deepEqual(precos.listarPlanilhas(html).map(p => p.id), ['2026-10-11_2026-10-17', '2026-10-04_2026-10-10']);
+
+  const nova = planilhaAnp({ periodo: '11/10/2026 A 17/10/2026', linhas: [{ produto: 'GASOLINA COMUM', preco: 7.2, data: 46310 }] });
+  await precos.atualizar({ dataDir: dir, fetchImpl: fetchFalso({ [LPC_PAGE]: pagina([S2]), [urlPlanilha(S2)]: semana2() }), ...quieto });
+  const f = fetchFalso({ [LPC_PAGE]: html, [urlPlanilha(S2)]: semana2(), [urlPlanilha(S3)]: nova });
+  const r = await precos.atualizar({ dataDir: dir, fetchImpl: f, semanas: 1, ...quieto });
+  assert.deepEqual(r.importadas.map(i => i.semana), ['2026-10-11_2026-10-17']);
+  assert.equal((await precos.atualizar({ dataDir: dir, fetchImpl: f, semanas: 1, ...quieto })).resultado, 'sem-novidade', 'não baixa de novo');
 });
 
 test('filtro retorna somente Cuiabá e Várzea Grande/MT, tolerando acento, caixa e espaços', () => {
