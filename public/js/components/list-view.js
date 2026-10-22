@@ -297,7 +297,7 @@ const ListView = (() => {
         <header class="page-head">
           <div class="page-inner">
             <div class="brandline">
-              <img src="assets/logo-icon.png" alt="" />
+              <img src="assets/logo-icon.webp" width="48" height="48" alt="" />
               <span class="wordmark">Combustível <b>Certo</b></span>
               <span class="place">${UI.esc(p.place || "Cuiabá")}</span>
             </div>

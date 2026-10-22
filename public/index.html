@@ -13,17 +13,15 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap"
-      rel="stylesheet"
-    />
+    <!-- fonte não bloqueia a renderização: aplica o CSS só depois de baixar -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap" /></noscript>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-    <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Web Awesome: só o tema e os componentes usados (seletor, barra de faixa e campos) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/styles/themes/default.css" />
     <script type="module" src="https://cdn.jsdelivr.net/npm/@awesome.me/webawesome@3.14.0/dist-cdn/webawesome.loader.js"></script>
-    <link rel="stylesheet" href="css/app.css?v=13" />
+    <link rel="stylesheet" href="css/app.css?v=14" />
 
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7097586220358015"
      crossorigin="anonymous"></script>
@@ -35,7 +33,7 @@
       <section id="viewMap" class="view-panel" aria-label="Mapa de postos">
         <div class="map-top">
           <div class="map-bar">
-            <img src="assets/logo-icon.png" alt="Combustível Certo" />
+            <img src="assets/logo-icon.webp" width="48" height="48" alt="Combustível Certo" />
             <div id="mapFloatingFuels"></div>
             <button id="mapCityBtn" type="button" class="city-btn" popovertarget="cityMenu"><i data-lucide="map-pin"></i></button>
           </div>
@@ -75,7 +73,7 @@
           <header class="page-head">
             <div class="page-inner">
               <div class="brandline">
-                <img src="assets/logo-icon.png" alt="" />
+                <img src="assets/logo-icon.webp" width="48" height="48" alt="" />
                 <span class="wordmark">Combustível <b>Certo</b></span>
               </div>
             </div>
@@ -120,7 +118,7 @@
       </section>
 
       <nav class="bottom-nav" aria-label="Seções">
-        <img class="nav-brand" src="assets/logo-icon.png" alt="Combustível Certo" />
+        <img class="nav-brand" src="assets/logo-icon.webp" width="48" height="48" alt="Combustível Certo" />
         <button type="button" data-nav-tab="map" class="nav-tab-btn is-active">
           <i data-lucide="map"></i>
           <span>Mapa</span>
@@ -218,15 +216,16 @@
     <div id="cityMenu" class="menu" popover role="menu" aria-label="Cidade"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="js/data/stations-data.js?v=13"></script>
-    <script src="js/calc.js?v=13"></script>
-    <script src="js/components/ui.js?v=13"></script>
-    <script src="js/components/map-view.js?v=13"></script>
-    <script src="js/components/bottom-sheet.js?v=13"></script>
-    <script src="js/components/list-view.js?v=13"></script>
-    <script src="js/components/modals.js?v=13"></script>
-    <script src="js/components/nav.js?v=13"></script>
-    <script src="js/components/tour.js?v=13"></script>
-    <script src="js/app.js?v=13"></script>
+    <script src="https://unpkg.com/lucide@1.53.0/dist/umd/lucide.min.js"></script>
+    <script src="js/data/stations-data.js?v=14"></script>
+    <script src="js/calc.js?v=14"></script>
+    <script src="js/components/ui.js?v=14"></script>
+    <script src="js/components/map-view.js?v=14"></script>
+    <script src="js/components/bottom-sheet.js?v=14"></script>
+    <script src="js/components/list-view.js?v=14"></script>
+    <script src="js/components/modals.js?v=14"></script>
+    <script src="js/components/nav.js?v=14"></script>
+    <script src="js/components/tour.js?v=14"></script>
+    <script src="js/app.js?v=14"></script>
   </body>
 </html>
