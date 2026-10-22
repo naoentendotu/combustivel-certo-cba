@@ -5,6 +5,7 @@
 // No GitHub Actions, informa em GITHUB_OUTPUT: mudou (true/false), semana (id da mais recente com novidade) e titulo.
 
 const fs = require("fs");
+const path = require("path");
 
 const [arqAntes, arqDepois] = process.argv.slice(2);
 if (!arqAntes || !arqDepois) {
@@ -90,6 +91,17 @@ if (!mudou) {
   );
   for (const r of estranhos.slice(0, 20)) {
     linhas.push(`- ${r.razao} (${CIDADES[r.municipio] || r.municipio}) · ${r.produto} · ${brl(r.preco)} em ${r.dataColeta}`);
+  }
+  // A lista de postos do app é fixa (public/js/data/stations-data.js): posto pesquisado fora dela não aparece no mapa
+  const cadastrados = new Set(
+    [...fs.readFileSync(path.join(__dirname, "..", "public", "js", "data", "stations-data.js"), "utf8").matchAll(/\["(\d{14})"/g)].map((m) => m[1]),
+  );
+  const foraDoCadastro = [...new Map(novos.filter((r) => POR_LITRO.test(r.produto) && !cadastrados.has(r.cnpj)).map((r) => [r.cnpj, r])).values()];
+  if (foraDoCadastro.length) {
+    linhas.push("", `**Atenção:** ${foraDoCadastro.length} posto(s) com preço que não estão na lista do app (inclua em \`public/js/data/stations-data.js\` com latitude e longitude):`);
+    for (const r of foraDoCadastro) {
+      linhas.push(`- ${r.cnpj} · ${r.razao} · ${[r.endereco, r.numero].filter(Boolean).join(", ")} · ${r.bairro} · ${CIDADES[r.municipio] || r.municipio} · ${r.bandeira}`);
+    }
   }
   if (removidos.length) {
     linhas.push("", `**Atenção:** ${removidos.length} registro(s) que estavam na base saíram ou mudaram de preço. Isso só é esperado quando a ANP republica uma semana.`);
