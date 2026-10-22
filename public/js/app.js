@@ -78,7 +78,7 @@
       typeof VEHICLES !== "undefined" &&
       VEHICLES[prefs.vehicle]
         ? prefs.vehicle
-        : 1,
+        : 0, // Volkswagen Fox
     hideNoPrice: prefs.hideNoPrice ?? true,
     sort: prefs.sort || "price", // 'price' | 'dist' | 'both'
     city: CITIES.some((c) => c.id === prefs.city) ? prefs.city : "", // '' = as duas cidades
@@ -149,7 +149,7 @@
     });
     document.getElementById("carroRemover").addEventListener("click", () => {
       VEHICLES.length = CUSTOM_IDX;
-      if (state.vehicle === CUSTOM_IDX) state.vehicle = 1;
+      if (state.vehicle === CUSTOM_IDX) state.vehicle = 0;
       savePrefs();
       closeCarDialog();
       render();
