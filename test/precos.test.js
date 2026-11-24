@@ -237,3 +237,29 @@ test('agenda semanal calcula a próxima execução', () => {
   assert.deepEqual(proximaExecucao(seg10(2026, 10, 12, 10), 1, 10), seg10(2026, 10, 19, 10)); // segunda às 10h -> próxima semana
   assert.deepEqual(proximaExecucao(seg10(2026, 10, 14, 15), 1, 10), seg10(2026, 10, 19, 10)); // quarta -> segunda seguinte
 });
+
+test('fetchHttp segue redirecionamento, respeita timeout e atualizar repassa tentativas e causa do erro', async t => {
+  const http = require('http');
+  const srv = http.createServer((req, res) => {
+    if (req.url === '/vai') { res.writeHead(302, { Location: '/final' }); res.end(); }
+    else if (req.url === '/final') { res.writeHead(200); res.end('ok-anp'); }
+    else if (req.url === '/lento') { setTimeout(() => { res.writeHead(200); res.end('tarde'); }, 500); }
+  });
+  await new Promise(ok => srv.listen(0, '127.0.0.1', ok));
+  t.after(() => srv.close());
+  const base = `http://127.0.0.1:${srv.address().port}`;
+
+  const r = await precos.fetchHttp(`${base}/vai`);
+  assert.equal(r.ok, true);
+  assert.equal(await r.text(), 'ok-anp');
+  assert.equal(Buffer.from(await r.arrayBuffer()).toString(), 'ok-anp');
+  await assert.rejects(() => precos.fetchHttp(`${base}/lento`, { signal: AbortSignal.timeout(50) }));
+
+  const dir = pastaTemp();
+  const erroComCausa = new Error('fetch failed', { cause: { code: 'UND_ERR_CONNECT_TIMEOUT' } });
+  const fora = fetchFalso({ [LPC_PAGE]: erroComCausa });
+  const res = await precos.atualizar({ dataDir: dir, fetchImpl: fora, tentativas: 5, ...quieto });
+  assert.equal(res.resultado, 'erro');
+  assert.equal(fora.chamadas.length, 5);
+  assert.match(res.mensagem, /UND_ERR_CONNECT_TIMEOUT/);
+});

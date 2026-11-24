@@ -40,6 +40,7 @@ function status() {
   if (args.includes("--status")) return status();
   const r = await precos.atualizar({
     semanas: Number(opcao("semanas")) || 4,
+    tentativas: Number(opcao("tentativas")) || 3,
     forcar: args.includes("--forcar"),
   });
   status();

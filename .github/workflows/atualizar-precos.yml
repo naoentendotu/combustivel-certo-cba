@@ -5,9 +5,9 @@ name: Atualizar preços da ANP
 
 on:
   schedule:
-    # Todo dia às 08:00 de Cuiabá (12:00 UTC). A ANP publica a semana alguns dias depois de ela terminar,
-    # sem dia fixo; quando não há planilha nova, a rotina termina sem fazer nada.
-    - cron: "0 12 * * *"
+    # Todo dia às 08:23 de Cuiabá (12:23 UTC) — minuto quebrado evita o pico de fila da hora cheia no GitHub Actions.
+    # A ANP publica a semana alguns dias depois de ela terminar, sem dia fixo; quando não há planilha nova, termina sem fazer nada.
+    - cron: "23 12 * * *"
   workflow_dispatch:
     inputs:
       semanas:
@@ -44,7 +44,7 @@ jobs:
         env:
           SEMANAS: ${{ inputs.semanas || '4' }}
           FORCAR: ${{ inputs.forcar && '--forcar' || '' }}
-        run: node scripts/atualizar-precos.js --semanas="$SEMANAS" $FORCAR
+        run: node scripts/atualizar-precos.js --semanas="$SEMANAS" --tentativas=5 $FORCAR
 
       - name: Resumir o que mudou
         id: resumo
